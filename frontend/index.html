@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AGORA | Real-Time Forum</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="./css/style.css?v=2" />
+</head>
+
+<body>
+
+    <!-- NAVIGATION -->
+    <nav>
+        <a href="/" class="logo" onclick="showView('feed'); return false;">
+            <div class="logo-icon">
+                <span class="material-symbols-outlined">groups</span>
+            </div>
+            <span>AGORA</span>
+        </a>
+        <div class="nav-actions hidden" id="nav-auth">
+            <span class="material-symbols-outlined btn-icon" id="nav-msg-icon"
+                style="cursor: pointer; position: relative;" onclick="showView('messages')" title="Messages">chat</span>
+            <span class="user-badge" id="nav-username">@user</span>
+            <button class="btn btn-sm btn-outline" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <!-- AUTH VIEW (Login/Register) -->
+    <div id="view-auth">
+        <div class="auth-left">
+            <div class="auth-form">
+                <!-- Login Form -->
+                <div id="form-login">
+                    <h1 class="auth-title">WELCOME BACK</h1>
+                    <p class="auth-subtitle">Access the world's most curious community</p>
+
+                    <div class="form-group">
+                        <label class="form-label">EMAIL OR NICKNAME</label>
+                        <input type="text" id="login-identifier" class="input"
+                            placeholder="Enter your email or nickname" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">PASSWORD</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="login-password" class="input"
+                                placeholder="Enter your password" />
+                            <span class="password-toggle material-symbols-outlined">visibility</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-full" onclick="login()">LOGIN TO AGORA</button>
+
+                    <div class="auth-toggle">
+                        <p class="auth-toggle-text">Don't have an account?</p>
+                        <button class="btn btn-outline btn-full" onclick="showRegister()">CREATE ACCOUNT</button>
+                    </div>
+                </div>
+
+                <!-- Register Form -->
+                <div id="form-register" class="hidden">
+                    <h1 class="auth-title">JOIN AGORA</h1>
+                    <p class="auth-subtitle">Become part of the community</p>
+
+                    <div class="form-group">
+                        <label class="form-label">NICKNAME</label>
+                        <input type="text" id="reg-nickname" class="input" placeholder="Choose a nickname" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">EMAIL</label>
+                        <input type="email" id="reg-email" class="input" placeholder="Enter your email" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">PASSWORD</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="reg-password" class="input" placeholder="Create a password" />
+                            <span class="password-toggle material-symbols-outlined">visibility</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">FIRST NAME</label>
+                            <input type="text" id="reg-firstname" class="input" placeholder="First" />
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">LAST NAME</label>
+                            <input type="text" id="reg-lastname" class="input" placeholder="Last" />
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">AGE</label>
+                            <input type="number" id="reg-age" class="input" placeholder="25" />
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">GENDER</label>
+                            <select id="reg-gender" class="input">
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                                <option value="prefer-not-to-say">Prefer not to say</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-full" onclick="register()">CREATE ACCOUNT</button>
+
+                    <div class="auth-toggle">
+                        <p class="auth-toggle-text">Already have an account?</p>
+                        <button class="btn btn-outline btn-full" onclick="showLogin()">LOGIN</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Purple Gradient Right Side -->
+        <div class="auth-right">
+            <div
+                style="background: var(--primary); color: var(--white); padding: 0.25rem 0.75rem; font-size: 0.625rem; font-weight: 900; text-transform: uppercase; display: inline-block; margin-bottom: 1rem;">
+                SCIENCE FACT #412</div>
+            <h2 class="auth-quote">Light travels 186,000 miles per second.</h2>
+            <div class="auth-author">
+                <div class="auth-author-avatar">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
+                <div>
+                    <div style="font-weight: 800;">Carl Sagan</div>
+                    <div style="font-size: 0.625rem; text-transform: uppercase; opacity: 0.8;">Astronomer & Author</div>
+                </div>
+            </div>
+            <div class="auth-stats">
+                <div class="stat">
+                    <div class="stat-value">2.4M</div>
+                    <div class="stat-label">Discussions</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">156K</div>
+                    <div class="stat-label">Researchers</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">890</div>
+                    <div class="stat-label">Active Topics</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FEED VIEW -->
+    <div id="view-feed" class="hidden">
+        <!-- Main Feed (Centered, No Sidebars) -->
+        <main class="feed-main-single">
+            <!-- Create Post -->
+            <div class="create-post-card">
+                <div class="form-group">
+                    <label class="form-label">TITLE</label>
+                    <input type="text" id="post-title" class="input" placeholder="Enter post title..." />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">CONTENT</label>
+                    <textarea id="post-content" class="create-post-input"
+                        placeholder="What's happening in the AGORA?"></textarea>
+                </div>
+                <div class="create-post-actions">
+                    <select id="post-category" class="input" style="width: auto; min-width: 150px; flex: 1;" multiple>
+                        <option value="general">General</option>
+                        <option value="science">Science</option>
+                        <option value="tech">Tech</option>
+                        <option value="art">Art</option>
+                        <option value="gaming">Gaming</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="createPost()">POST</button>
+                </div>
+            </div>
+
+            <!-- Posts Container -->
+            <div id="posts-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MESSAGES VIEW -->
+    <div id="view-messages" class="hidden">
+        <div class="messages-sidebar">
+            <div class="sidebar-card">
+                <div class="sidebar-title">Messages</div>
+                <div class="messages-list" id="messages-list">
+                    <!-- Users will be loaded here -->
+                </div>
+            </div>
+        </div>
+        <div class="message-chat">
+            <div class="message-header">
+                <div class="post-avatar" id="chat-avatar">?</div>
+                <div>
+                    <div class="post-author" id="chat-username">Select a user</div>
+                    <div class="post-time" id="chat-status">Start a conversation</div>
+                </div>
+            </div>
+            <div class="message-body" id="message-body">
+                <div class="text-center" style="padding: 3rem; color: var(--text-muted);">
+                    <span class="material-symbols-outlined" style="font-size: 3rem; opacity: 0.3;">chat</span>
+                    <p style="margin-top: 1rem; font-weight: 700; text-transform: uppercase; font-size: 0.75rem;">Select
+                        a user to start messaging</p>
+                </div>
+            </div>
+            <div class="message-input-area">
+                <input type="text" id="message-input" class="input" placeholder="Type a message..." />
+                <button class="btn btn-primary btn-icon" onclick="sendMessage()">
+                    <span class="material-symbols-outlined">send</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATIONS CONTAINER -->
+    <div id="notifications"></div>
+
+    <!-- JavaScript -->
+    <script src="./js/app.js?v=2"></script>
+    <script src="./js/auth.js?v=2"></script>
+    <script src="./js/feed.js?v=2"></script>
+    <script src="./js/messages.js?v=2"></script>
+</body>
+
+</html>
