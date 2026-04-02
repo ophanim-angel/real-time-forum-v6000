@@ -155,14 +155,19 @@ async function logout() {
         // Ignore errors, still clear local data
     }
 
-    localStorage.removeItem('jwt_token');
-    if (window.setCurrentUser) {
-        window.setCurrentUser(null);
-    } else {
-        currentUser = null;
-        window.currentUser = null;
-        localStorage.removeItem('user_data');
+    if (window.clearSession) {
+        window.clearSession({
+            updateStorage: true,
+            notify: true,
+            notificationMessage: 'Logged out successfully'
+        });
+        return;
     }
+
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('user_data');
+    currentUser = null;
+    window.currentUser = null;
 
     if (window.closeWebSocket) window.closeWebSocket();
 

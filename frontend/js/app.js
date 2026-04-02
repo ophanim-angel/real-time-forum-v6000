@@ -3,6 +3,7 @@
 // Current logged-in user
 let currentUser = null;
 const AUTH_PATHS = new Set(['/login', '/register']);
+const AUTH_STORAGE_KEYS = new Set(['jwt_token', 'user_data']);
 
 // ==================== INITIALIZATION ====================
 
@@ -16,24 +17,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Check if user is logged in (token in localStorage)
 function checkAuth() {
-    const token = localStorage.getItem('jwt_token');
-    const user = localStorage.getItem('user_data');
+    const session = getStoredSession();
 
-    if (token && user) {
-        try {
-            currentUser = JSON.parse(user);
-            window.currentUser = currentUser; // Ensure global sync
-            showView('feed', { replaceHistory: true });
-            if (window.initWebSocket) initWebSocket();
-        } catch (error) {
-            console.error('Error parsing user data:', error);
-            localStorage.removeItem('jwt_token');
-            localStorage.removeItem('user_data');
-            showView('auth', { replaceHistory: true });
-        }
-    } else {
-        showView('auth', { replaceHistory: true });
+    if (session) {
+        currentUser = session.user;
+        window.currentUser = currentUser; // Ensure global sync
+        showView('feed', { replaceHistory: true });
+        if (window.initWebSocket) initWebSocket();
+        return;
     }
+
+    clearSession({ updateStorage: true, replaceHistory: true });
 }
 
 // ==================== ROUTER (Show/Hide Views) ====================
@@ -227,10 +221,11 @@ async function apiRequest(endpoint, method = 'GET', data = null) {
     if (!response.ok) {
         // If 401, token might be expired - log out user
         if (response.status === 401) {
-            localStorage.removeItem('jwt_token');
-            localStorage.removeItem('user_data');
-            currentUser = null;
-            showView('auth');
+            clearSession({
+                updateStorage: true,
+                notify: true,
+                notificationMessage: 'Your session expired. Please log in again.'
+            });
         }
         throw new Error(result.message || 'Request failed');
     }
@@ -288,6 +283,34 @@ function setupGlobalEventListeners() {
         routeFromLocation();
     });
 
+    window.addEventListener('storage', (event) => {
+        if (!AUTH_STORAGE_KEYS.has(event.key)) {
+            return;
+        }
+
+        const session = getStoredSession();
+
+        if (!session) {
+            clearSession({
+                updateStorage: false,
+                notify: true,
+                notificationMessage: 'You were logged out in another tab.'
+            });
+            return;
+        }
+
+        currentUser = session.user;
+        window.currentUser = session.user;
+
+        if (window.location.pathname === '/login' || window.location.pathname === '/register') {
+            showView('feed', { replaceHistory: true });
+        }
+
+        if (window.initWebSocket) {
+            window.initWebSocket();
+        }
+    });
+
     // Auto-hide notifications after timeout
     setInterval(() => {
         const notifications = document.querySelectorAll('.notification');
@@ -323,3 +346,56 @@ function setCurrentUser(user) {
     }
 }
 window.setCurrentUser = setCurrentUser;
+
+function getStoredSession() {
+    const token = localStorage.getItem('jwt_token');
+    const user = localStorage.getItem('user_data');
+
+    if (!token || !user) {
+        return null;
+    }
+
+    try {
+        return {
+            token,
+            user: JSON.parse(user)
+        };
+    } catch (error) {
+        console.error('Error parsing user data:', error);
+        return null;
+    }
+}
+
+function clearSession(options = {}) {
+    const {
+        updateStorage = false,
+        notify = false,
+        notificationMessage = 'Logged out successfully',
+        replaceHistory = true
+    } = options;
+    const hadSession = Boolean(
+        currentUser ||
+        localStorage.getItem('jwt_token') ||
+        localStorage.getItem('user_data')
+    );
+
+    if (updateStorage) {
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('user_data');
+    }
+
+    currentUser = null;
+    window.currentUser = null;
+
+    if (window.closeWebSocket) {
+        window.closeWebSocket();
+    }
+
+    showView('auth', { replaceHistory });
+
+    if (notify && hadSession) {
+        showNotification(notificationMessage, 'success');
+    }
+}
+
+window.clearSession = clearSession;
