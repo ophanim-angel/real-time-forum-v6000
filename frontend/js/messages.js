@@ -85,10 +85,13 @@ function handleWebSocketEvent(event) {
         const msg = event.payload;
         const myId = window.currentUser ? window.currentUser.user_id : null;
         const activeChatId = currentChatUserId;
+        const isChatVisible = isMessagesPopupOpen() && activeChatId !== null;
 
-        // If message belongs to current active chat, append it
-        const isRelevant = (msg.sender_id === myId && msg.receiver_id === activeChatId) ||
-            (msg.sender_id === activeChatId && msg.receiver_id === myId);
+        // Only suppress notifications when the matching conversation is actually visible.
+        const isRelevant = isChatVisible && (
+            (msg.sender_id === myId && msg.receiver_id === activeChatId) ||
+            (msg.sender_id === activeChatId && msg.receiver_id === myId)
+        );
 
         if (isRelevant) {
             appendMessageToChat(msg, false);
