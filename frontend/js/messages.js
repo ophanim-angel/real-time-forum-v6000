@@ -8,17 +8,22 @@ let isLoadingMessages = false;
 let hasMoreMessages = true;
 let usersCache = [];
 let typingUsers = new Map();
+let reconnectTimeoutId = null;
+let shouldReconnect = false;
 
 // Initialize WebSocket
 function initWebSocket() {
-    if (ws) {
-        ws.close();
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
     }
 
     if (!window.currentUser) return;
 
     const token = localStorage.getItem('jwt_token');
     if (!token) return;
+
+    shouldReconnect = true;
+    clearTimeout(reconnectTimeoutId);
 
     // Connect to WebSocket using current host
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -28,6 +33,8 @@ function initWebSocket() {
 
     ws.onopen = () => {
         console.log('WebSocket connected');
+        clearTimeout(reconnectTimeoutId);
+        updateChatStatus('Connected');
     };
 
     ws.onmessage = (event) => {
@@ -45,10 +52,25 @@ function initWebSocket() {
         }
     };
 
-    ws.onclose = () => {
-        console.log('WebSocket disconnected. Reconnecting in 3s...');
+    ws.onclose = (event) => {
+        ws = null;
+        hideTypingIndicator();
+
+        if (currentChatUserId) {
+            updateChatStatus('Disconnected');
+        }
+
+        if (!shouldReconnect) {
+            return;
+        }
+
+        console.log(`WebSocket disconnected (${event.code}). Reconnecting in 3s...`);
         if (localStorage.getItem('jwt_token') && window.currentUser) {
-            setTimeout(initWebSocket, 3000);
+            reconnectTimeoutId = setTimeout(() => {
+                if (!ws) {
+                    initWebSocket();
+                }
+            }, 3000);
         }
     };
 
@@ -59,11 +81,7 @@ function initWebSocket() {
 
 // Handle incoming WS events
 function handleWebSocketEvent(event) {
-    if (event.type === 'user_status') {
-        if (isMessagesPopupOpen()) {
-            loadMessagesList();
-        }
-    } else if (event.type === 'new_message') {
+    if (event.type === 'new_message') {
         const msg = event.payload;
         const myId = window.currentUser ? window.currentUser.user_id : null;
         const activeChatId = currentChatUserId;
@@ -211,7 +229,6 @@ async function loadMessagesList() {
 
             userEl.dataset.userid = user.id;
 
-            const statusClass = user.is_online ? 'status-online' : 'status-offline';
             const initial = user.nickname.charAt(0).toUpperCase();
             const isTypingNow = typingUsers.has(user.id);
 
@@ -235,7 +252,6 @@ async function loadMessagesList() {
                     </div>
                 </div>
                 ${badgeHtml}
-                <div class="message-user-status ${statusClass}" style="margin-left: ${badgeHtml ? '8px' : 'auto'};"></div>
             `;
 
             listContainer.appendChild(userEl);
@@ -434,20 +450,25 @@ async function sendMessage() {
     stopTyping();
 
     try {
-        const msg = await apiRequest('/api/chat/send', 'POST', payload);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'send_message',
+                payload
+            }));
+            updateChatStatus('Connected');
+            return;
+        }
 
-        // Append it immediately to our own chat body
+        const msg = await apiRequest('/api/chat/send', 'POST', payload);
         if (msg && msg.payload) {
             appendMessageToChat(msg.payload, false);
             scrollToBottom();
-
-            // Also refresh sidebar to show newest message text
             loadMessagesList();
         }
     } catch (error) {
         showNotification(error.message, 'error');
-        // Put text back if failed
         input.value = content;
+        updateChatStatus('Disconnected');
     }
 }
 
@@ -552,8 +573,10 @@ function debounce(func, wait) {
 // Export for other scripts
 window.initWebSocket = initWebSocket;
 window.closeWebSocket = () => {
+    shouldReconnect = false;
+    clearTimeout(reconnectTimeoutId);
     if (ws) {
-        ws.close();
+        ws.close(1000, 'client closing');
         ws = null;
     }
 };

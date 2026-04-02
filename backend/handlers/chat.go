@@ -37,7 +37,7 @@ func (h *ChatHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	// 2. Joins the private_messages table to find the most recent message exchanged between them.
 	// 3. Orders by the date of that last message (descending), and then alphabetically by nickname.
 	query := `
-		SELECT u.id, u.nickname, u.is_online, 
+		SELECT u.id, u.nickname,
                MAX(pm.created_at) as last_msg_time,
                (SELECT content FROM private_messages 
 				WHERE (sender_id = u.id AND receiver_id = ?) 
@@ -65,10 +65,9 @@ func (h *ChatHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	var users []map[string]interface{}
 	for rows.Next() {
 		var id, nickname string
-		var isOnline bool
 		var lastMsgTime, lastMsg sql.NullString
 
-		if err := rows.Scan(&id, &nickname, &isOnline, &lastMsgTime, &lastMsg); err != nil {
+		if err := rows.Scan(&id, &nickname, &lastMsgTime, &lastMsg); err != nil {
 			log.Println("Error scanning user:", err)
 			continue
 		}
@@ -76,7 +75,6 @@ func (h *ChatHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 		users = append(users, map[string]interface{}{
 			"id":            id,
 			"nickname":      nickname,
-			"is_online":     isOnline,
 			"last_msg_time": lastMsgTime.String,
 			"last_msg":      lastMsg.String,
 		})

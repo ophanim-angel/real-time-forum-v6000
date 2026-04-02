@@ -145,17 +145,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 7. Update is_online status
-	_, err = h.DB.Exec(
-		"UPDATE users SET is_online = 1 WHERE id = ?",
-		userID,
-	)
-	if err != nil {
-		log.Println("Warning: Could not update online status:", err)
-		// Don't fail the login for this - just log it
-	}
-
-	// 8. Generate JWT Token
+	// 7. Generate JWT Token
 	token, err := utils.GenerateToken(userID, nickname)
 	if err != nil {
 		log.Println("Token generation error:", err)
@@ -163,7 +153,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 9. Success Response
+	// 8. Success Response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":  "Login successful",
@@ -185,15 +175,6 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
-	}
-
-	// Set is_online = 0
-	_, err := h.DB.Exec(
-		"UPDATE users SET is_online = 0 WHERE id = ?",
-		userID,
-	)
-	if err != nil {
-		log.Println("Warning: Could not update online status:", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

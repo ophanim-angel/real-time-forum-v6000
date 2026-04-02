@@ -2,7 +2,6 @@ package ws
 
 import (
 	"database/sql"
-	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -73,12 +72,6 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 	// 5. Start read/write pumps
 	go client.readPump()
 	go client.writePump()
-
-	// 6. Broadcast online status
-	m.broadcastUserStatus(claims.UserID, true)
-
-	// Keep user online in DB
-	m.DB.Exec("UPDATE users SET is_online = 1 WHERE id = ?", claims.UserID)
 }
 
 func (m *Manager) addClient(c *Client) {
@@ -96,20 +89,6 @@ func (m *Manager) removeClient(c *Client) {
 		delete(m.clients, c)
 		close(c.Send)
 		log.Printf("Client removed. Total: %d", len(m.clients))
-
-		// Check if user has other active connections
-		userOnline := false
-		for client := range m.clients {
-			if client.UserID == c.UserID {
-				userOnline = true
-				break
-			}
-		}
-
-		if !userOnline {
-			m.broadcastUserStatus(c.UserID, false)
-			m.DB.Exec("UPDATE users SET is_online = 0 WHERE id = ?", c.UserID)
-		}
 	}
 }
 
@@ -143,14 +122,4 @@ func (m *Manager) SendToUser(userID string, message []byte) {
 			}
 		}
 	}
-}
-
-func (m *Manager) broadcastUserStatus(userID string, isOnline bool) {
-	statusMsg := map[string]interface{}{
-		"type":      "user_status",
-		"user_id":   userID,
-		"is_online": isOnline,
-	}
-	payload, _ := json.Marshal(statusMsg)
-	m.Broadcast(payload)
 }

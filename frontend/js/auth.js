@@ -67,17 +67,19 @@ async function login() {
             throw new Error(result.message || 'Login failed');
         }
 
-        // Save token and user data
-        localStorage.setItem('jwt_token', result.token);
-        localStorage.setItem('user_data', JSON.stringify({
-            user_id: result.user_id,
-            nickname: result.nickname
-        }));
-
-        currentUser = {
+        const user = {
             user_id: result.user_id,
             nickname: result.nickname
         };
+
+        localStorage.setItem('jwt_token', result.token);
+        if (window.setCurrentUser) {
+            window.setCurrentUser(user);
+        } else {
+            currentUser = user;
+            window.currentUser = user;
+            localStorage.setItem('user_data', JSON.stringify(user));
+        }
 
         if (window.initWebSocket) window.initWebSocket();
         showNotification('Login successful!', 'success');
@@ -153,10 +155,14 @@ async function logout() {
         // Ignore errors, still clear local data
     }
 
-    // Clear local storage
     localStorage.removeItem('jwt_token');
-    localStorage.removeItem('user_data');
-    currentUser = null;
+    if (window.setCurrentUser) {
+        window.setCurrentUser(null);
+    } else {
+        currentUser = null;
+        window.currentUser = null;
+        localStorage.removeItem('user_data');
+    }
 
     if (window.closeWebSocket) window.closeWebSocket();
 

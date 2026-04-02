@@ -820,22 +820,6 @@ nav {
     font-weight: 900;
 }
 
-.message-user-status {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    border: 2px solid var(--primary);
-    margin-left: auto;
-}
-
-.status-online {
-    background: var(--success);
-}
-
-.status-offline {
-    background: var(--text-muted);
-}
-
 .message-chat {
     flex: 1;
     background: var(--white);
