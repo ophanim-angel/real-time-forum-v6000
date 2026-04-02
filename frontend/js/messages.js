@@ -6,6 +6,8 @@ let currentChatUserNickname = '';
 let chatOffset = 0;
 let isLoadingMessages = false;
 let hasMoreMessages = true;
+let usersCache = [];
+let typingUsers = new Map();
 
 // Initialize WebSocket
 function initWebSocket() {
@@ -45,7 +47,9 @@ function initWebSocket() {
 
     ws.onclose = () => {
         console.log('WebSocket disconnected. Reconnecting in 3s...');
-        setTimeout(initWebSocket, 3000);
+        if (localStorage.getItem('jwt_token') && window.currentUser) {
+            setTimeout(initWebSocket, 3000);
+        }
     };
 
     ws.onerror = (err) => {
@@ -55,13 +59,8 @@ function initWebSocket() {
 
 // Handle incoming WS events
 function handleWebSocketEvent(event) {
-    console.log('WS Event received:', event.type, event);
-
     if (event.type === 'user_status') {
-        const userId = event.user_id;
-        const isOnline = event.is_online;
-        const view = document.getElementById('view-messages');
-        if (view && !view.classList.contains('hidden')) {
+        if (isMessagesPopupOpen()) {
             loadMessagesList();
         }
     } else if (event.type === 'new_message') {
@@ -69,67 +68,126 @@ function handleWebSocketEvent(event) {
         const myId = window.currentUser ? window.currentUser.user_id : null;
         const activeChatId = currentChatUserId;
 
-        console.log('New message for processing:', {
-            msg_sender: msg.sender_id,
-            msg_receiver: msg.receiver_id,
-            my_id: myId,
-            active_chat_id: activeChatId
-        });
-
         // If message belongs to current active chat, append it
         const isRelevant = (msg.sender_id === myId && msg.receiver_id === activeChatId) ||
             (msg.sender_id === activeChatId && msg.receiver_id === myId);
 
         if (isRelevant) {
-            console.log('Appending message to active chat');
             appendMessageToChat(msg, false);
             scrollToBottom();
+            updateChatStatus('Connected');
         } else {
-            console.log('Message is for background or from other user');
-            // ... (rest of the logic remains same but using explicit window scoped vars if needed)
             if (msg.sender_id !== myId) {
-                const userEl = document.querySelector(`.message-user[data-userid="${msg.sender_id}"]`);
-                if (userEl) {
-                    let badge = userEl.querySelector('.unread-badge');
-                    if (!badge) {
-                        badge = document.createElement('span');
-                        badge.className = 'unread-badge';
-                        badge.textContent = '1';
-                        badge.style = 'background: var(--error); color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.6rem; font-weight: bold; margin-left: auto;';
-                        userEl.appendChild(badge);
-                    } else {
-                        badge.textContent = parseInt(badge.textContent) + 1;
-                    }
-                } else {
-                    showNotification('New message received!', 'success');
-                }
-
-                if (document.getElementById('view-messages').classList.contains('hidden')) {
-                    const navIcon = document.getElementById('nav-msg-icon');
-                    if (navIcon) {
-                        navIcon.style.position = 'relative';
-                        let globalBadge = document.getElementById('nav-global-badge');
-                        if (!globalBadge) {
-                            globalBadge = document.createElement('span');
-                            globalBadge.id = 'nav-global-badge';
-                            globalBadge.style = 'position: absolute; top: -5px; right: -5px; background: var(--error); width: 10px; height: 10px; border-radius: 50%;';
-                            navIcon.appendChild(globalBadge);
-                        }
-                    }
-                }
-
-                if (!document.getElementById('view-messages').classList.contains('hidden')) {
-                    const snippet = userEl?.querySelector('.msg-snippet');
-                    if (snippet) snippet.textContent = msg.content.substring(0, 25) + '...';
-                }
+                incrementUnreadBadge(msg.sender_id);
+                showNotification('New message received', 'success');
+                showIncomingMessageToast(msg);
             }
         }
+
+        loadMessagesList();
     } else if (event.type === 'typing') {
         const senderId = event.payload.sender_id;
+        typingUsers.set(senderId, true);
+        if (isMessagesPopupOpen()) {
+            loadMessagesList();
+        }
         if (senderId === currentChatUserId) {
             showTypingIndicator();
+            updateChatStatus('Typing...');
+        }
+    } else if (event.type === 'stop_typing') {
+        const senderId = event.payload.sender_id;
+        typingUsers.delete(senderId);
+        if (isMessagesPopupOpen()) {
+            loadMessagesList();
+        }
+        if (senderId === currentChatUserId) {
+            hideTypingIndicator();
+            updateChatStatus('Connected');
         }
     }
+}
+
+function isMessagesPopupOpen() {
+    const popup = document.getElementById('chat-popup');
+    return popup && !popup.classList.contains('hidden');
+}
+
+function toggleMessagesPopup(forceState) {
+    const popup = document.getElementById('chat-popup');
+    if (!popup) return;
+
+    const shouldOpen = typeof forceState === 'boolean'
+        ? forceState
+        : popup.classList.contains('hidden');
+
+    popup.classList.toggle('hidden', !shouldOpen);
+
+    if (shouldOpen) {
+        loadMessagesList();
+        clearGlobalMessageBadge();
+    } else {
+        stopTyping();
+    }
+}
+
+function updateChatStatus(text) {
+    const status = document.getElementById('chat-status');
+    if (status) status.textContent = text;
+}
+
+function incrementUnreadBadge(userId) {
+    const navIcon = document.getElementById('nav-msg-icon');
+    if (navIcon) {
+        let globalBadge = document.getElementById('nav-global-badge');
+        if (!globalBadge) {
+            globalBadge = document.createElement('span');
+            globalBadge.id = 'nav-global-badge';
+            globalBadge.className = 'nav-global-badge';
+            navIcon.appendChild(globalBadge);
+        }
+    }
+
+    const userEl = document.querySelector(`.message-user[data-userid="${userId}"]`);
+    if (!userEl) return;
+
+    let badge = userEl.querySelector('.unread-badge');
+    if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'unread-badge';
+        badge.textContent = '1';
+        userEl.appendChild(badge);
+    } else {
+        badge.textContent = String((parseInt(badge.textContent, 10) || 0) + 1);
+    }
+}
+
+function clearGlobalMessageBadge() {
+    document.getElementById('nav-global-badge')?.remove();
+}
+
+function showIncomingMessageToast(message) {
+    const stack = document.getElementById('chat-toast-stack');
+    if (!stack) return;
+
+    const sender = usersCache.find(user => user.id === message.sender_id);
+    const toast = document.createElement('button');
+    toast.type = 'button';
+    toast.className = 'chat-toast';
+    toast.innerHTML = `
+        <div class="chat-toast-title">${escapeHTML(sender?.nickname || 'New message')}</div>
+        <div class="chat-toast-text">${escapeHTML(message.content)}</div>
+    `;
+    toast.onclick = () => {
+        toggleMessagesPopup(true);
+        if (sender) {
+            openChat(sender.id, sender.nickname);
+        }
+        toast.remove();
+    };
+
+    stack.prepend(toast);
+    setTimeout(() => toast.remove(), 5000);
 }
 
 // Load users for the sidebar
@@ -138,6 +196,7 @@ async function loadMessagesList() {
 
     try {
         const users = await apiRequest('/api/chat/users', 'GET');
+        usersCache = users || [];
 
         if (!users || users.length === 0) {
             listContainer.innerHTML = '<p class="text-center" style="font-size: 0.75rem; color: var(--text-muted); padding: 1rem;">No users found</p>';
@@ -154,6 +213,7 @@ async function loadMessagesList() {
 
             const statusClass = user.is_online ? 'status-online' : 'status-offline';
             const initial = user.nickname.charAt(0).toUpperCase();
+            const isTypingNow = typingUsers.has(user.id);
 
             let lastMsgText = user.last_msg || 'Start a conversation';
             if (lastMsgText.length > 25) lastMsgText = lastMsgText.substring(0, 25) + '...';
@@ -162,12 +222,16 @@ async function loadMessagesList() {
             const existingBadge = document.querySelector(`.message-user[data-userid="${user.id}"] .unread-badge`);
             const badgeHtml = existingBadge ? existingBadge.outerHTML : '';
 
+            if (isTypingNow) {
+                userEl.classList.add('typing');
+            }
+
             userEl.innerHTML = `
                 <div class="post-avatar" style="width: 32px; height: 32px; font-size: 0.75rem;">${initial}</div>
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 800; font-size: 0.75rem;">${escapeHTML(user.nickname)}</div>
                     <div class="msg-snippet" style="font-size: 0.625rem; color: ${currentChatUserId === user.id ? 'var(--bg)' : 'var(--text-muted)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        ${escapeHTML(lastMsgText)}
+                        ${isTypingNow ? 'Typing...' : escapeHTML(lastMsgText)}
                     </div>
                 </div>
                 ${badgeHtml}
@@ -184,10 +248,13 @@ async function loadMessagesList() {
 
 // Open chat with a user
 async function openChat(userId, nickname) {
+    toggleMessagesPopup(true);
+    stopTyping();
     currentChatUserId = userId;
     currentChatUserNickname = nickname;
     chatOffset = 0;
     hasMoreMessages = true;
+    typingUsers.delete(userId);
 
     // Show input area now that a user is selected
     const inputArea = document.querySelector('.message-input-area');
@@ -225,7 +292,7 @@ async function openChat(userId, nickname) {
     await loadMessages();
     scrollToBottom();
 
-    document.getElementById('chat-status').textContent = 'Connected';
+    updateChatStatus('Connected');
 }
 
 // Handle scroll up for infinite load (throttle/debounce)
@@ -270,6 +337,7 @@ async function loadMessages() {
                 endEl.textContent = "Start of conversation";
                 body.prepend(endEl);
             }
+            updateChatStatus('Connected');
             isLoadingMessages = false;
             return;
         }
@@ -363,6 +431,7 @@ async function sendMessage() {
 
     // Clear input immediately for better UX
     input.value = '';
+    stopTyping();
 
     try {
         const msg = await apiRequest('/api/chat/send', 'POST', payload);
@@ -389,14 +458,20 @@ let typingTimeoutLocal = null;
 document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('message-input');
     if (input) {
-        input.addEventListener('keypress', (e) => {
+        input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
+                e.preventDefault();
                 sendMessage();
             }
         });
 
         input.addEventListener('input', () => {
             if (!currentChatUserId || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+            if (!input.value.trim()) {
+                stopTyping();
+                return;
+            }
 
             if (!isTyping) {
                 isTyping = true;
@@ -405,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             clearTimeout(typingTimeoutLocal);
             typingTimeoutLocal = setTimeout(() => {
-                isTyping = false;
+                stopTyping();
             }, 2000);
         });
 
@@ -433,8 +508,26 @@ function showTypingIndicator() {
 
     clearTimeout(removeTypingTimeout);
     removeTypingTimeout = setTimeout(() => {
-        if (indicator) indicator.remove();
+        hideTypingIndicator();
+        if (currentChatUserId) updateChatStatus('Connected');
     }, 2500);
+}
+
+function hideTypingIndicator() {
+    document.getElementById('typing-indicator')?.remove();
+}
+
+function stopTyping() {
+    clearTimeout(typingTimeoutLocal);
+    if (!isTyping) return;
+
+    isTyping = false;
+    if (currentChatUserId && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'stop_typing',
+            payload: { receiver_id: currentChatUserId }
+        }));
+    }
 }
 
 // Scroll to bottom of chat
@@ -465,3 +558,6 @@ window.closeWebSocket = () => {
     }
 };
 window.sendMessage = sendMessage;
+window.loadMessagesList = loadMessagesList;
+window.openChat = openChat;
+window.toggleMessagesPopup = toggleMessagesPopup;

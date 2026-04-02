@@ -29,8 +29,13 @@
             <span>AGORA</span>
         </a>
         <div class="nav-actions hidden" id="nav-auth">
+            <button type="button" class="btn btn-sm btn-outline nav-create-btn" id="nav-create-btn"
+                onclick="toggleCreatePost()" title="Create Post">
+                <span class="material-symbols-outlined">add</span>
+                <span>Create</span>
+            </button>
             <span class="material-symbols-outlined btn-icon" id="nav-msg-icon"
-                style="cursor: pointer; position: relative;" onclick="showView('messages')" title="Messages">chat</span>
+                style="cursor: pointer; position: relative;" onclick="toggleMessagesPopup()" title="Messages">chat</span>
             <span class="user-badge" id="nav-username">@user</span>
             <button class="btn btn-sm btn-outline" onclick="logout()">Logout</button>
         </div>
@@ -60,11 +65,11 @@
                         </div>
                     </div>
 
-                    <button class="btn btn-primary btn-full" onclick="login()">LOGIN TO AGORA</button>
+                    <button type="button" class="btn btn-primary btn-full" onclick="login()">LOGIN TO AGORA</button>
 
                     <div class="auth-toggle">
                         <p class="auth-toggle-text">Don't have an account?</p>
-                        <button class="btn btn-outline btn-full" onclick="showRegister()">CREATE ACCOUNT</button>
+                        <button type="button" class="btn btn-outline btn-full" onclick="showRegister()">CREATE ACCOUNT</button>
                     </div>
                 </div>
 
@@ -118,43 +123,12 @@
                         </div>
                     </div>
 
-                    <button class="btn btn-primary btn-full" onclick="register()">CREATE ACCOUNT</button>
+                    <button type="button" class="btn btn-primary btn-full" onclick="register()">CREATE ACCOUNT</button>
 
                     <div class="auth-toggle">
                         <p class="auth-toggle-text">Already have an account?</p>
-                        <button class="btn btn-outline btn-full" onclick="showLogin()">LOGIN</button>
+                        <button type="button" class="btn btn-outline btn-full" onclick="showLogin()">LOGIN</button>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Purple Gradient Right Side -->
-        <div class="auth-right">
-            <div
-                style="background: var(--primary); color: var(--white); padding: 0.25rem 0.75rem; font-size: 0.625rem; font-weight: 900; text-transform: uppercase; display: inline-block; margin-bottom: 1rem;">
-                SCIENCE FACT #412</div>
-            <h2 class="auth-quote">Light travels 186,000 miles per second.</h2>
-            <div class="auth-author">
-                <div class="auth-author-avatar">
-                    <span class="material-symbols-outlined">person</span>
-                </div>
-                <div>
-                    <div style="font-weight: 800;">Carl Sagan</div>
-                    <div style="font-size: 0.625rem; text-transform: uppercase; opacity: 0.8;">Astronomer & Author</div>
-                </div>
-            </div>
-            <div class="auth-stats">
-                <div class="stat">
-                    <div class="stat-value">2.4M</div>
-                    <div class="stat-label">Discussions</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-value">156K</div>
-                    <div class="stat-label">Researchers</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-value">890</div>
-                    <div class="stat-label">Active Topics</div>
                 </div>
             </div>
         </div>
@@ -162,10 +136,63 @@
 
     <!-- FEED VIEW -->
     <div id="view-feed" class="hidden">
-        <!-- Main Feed (Centered, No Sidebars) -->
-        <main class="feed-main-single">
+        <main class="feed-layout">
+            <aside class="feed-sidebar">
+                <div class="feed-filters-card">
+                    <div class="feed-filters-header">
+                        <div>
+                            <div class="sidebar-title" style="margin-bottom: 0.5rem;">Feed Filters</div>
+                            <p class="feed-filters-copy">Browse everything, narrow by topic, or show only posts you liked.</p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="clearFeedFilters()">Clear Filters</button>
+                    </div>
+                    <div class="feed-filters-controls">
+                        <div class="filter-stack">
+                            <label class="form-label">TOPICS</label>
+                            <div class="filter-topic-list">
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="general" onchange="updateFeedFilters()" />
+                                    <span>General</span>
+                                </label>
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="science" onchange="updateFeedFilters()" />
+                                    <span>Science</span>
+                                </label>
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="tech" onchange="updateFeedFilters()" />
+                                    <span>Tech</span>
+                                </label>
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="art" onchange="updateFeedFilters()" />
+                                    <span>Art</span>
+                                </label>
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="gaming" onchange="updateFeedFilters()" />
+                                    <span>Gaming</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="filter-stack">
+                            <label class="form-label">REACTIONS</label>
+                            <label class="filter-checkbox">
+                                <input type="checkbox" id="feed-liked-filter" onchange="updateFeedFilters()" />
+                                <span>Only posts I liked</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="feed-main">
             <!-- Create Post -->
-            <div class="create-post-card">
+            <div class="create-post-card hidden" id="create-post-panel">
+                <div class="create-post-header">
+                    <div>
+                        <div class="sidebar-title" style="margin-bottom: 0.5rem;">Create Post</div>
+                        <p class="feed-filters-copy">Share something new with the community.</p>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="toggleCreatePost(false)">Close</button>
+                </div>
                 <div class="form-group">
                     <label class="form-label">TITLE</label>
                     <input type="text" id="post-title" class="input" placeholder="Enter post title..." />
@@ -175,15 +202,34 @@
                     <textarea id="post-content" class="create-post-input"
                         placeholder="What's happening in the AGORA?"></textarea>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">TOPICS</label>
+                    <div class="topic-grid" id="post-topic-options">
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="general" />
+                            <span>General</span>
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="science" />
+                            <span>Science</span>
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="tech" />
+                            <span>Tech</span>
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="art" />
+                            <span>Art</span>
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="gaming" />
+                            <span>Gaming</span>
+                        </label>
+                    </div>
+                </div>
                 <div class="create-post-actions">
-                    <select id="post-category" class="input" style="width: auto; min-width: 150px; flex: 1;" multiple>
-                        <option value="general">General</option>
-                        <option value="science">Science</option>
-                        <option value="tech">Tech</option>
-                        <option value="art">Art</option>
-                        <option value="gaming">Gaming</option>
-                    </select>
-                    <button class="btn btn-primary" onclick="createPost()">POST</button>
+                    <div class="create-post-hint">Pick one or more topics for your post.</div>
+                    <button type="button" class="btn btn-primary" onclick="createPost()">POST</button>
                 </div>
             </div>
 
@@ -193,41 +239,51 @@
                     <div class="spinner"></div>
                 </div>
             </div>
+            </section>
         </main>
     </div>
 
-    <!-- MESSAGES VIEW -->
-    <div id="view-messages" class="hidden">
-        <div class="messages-sidebar">
-            <div class="sidebar-card">
-                <div class="sidebar-title">Messages</div>
+    <div id="view-messages" class="hidden"></div>
+
+    <div id="chat-popups">
+        <div class="chat-popup hidden" id="chat-popup">
+            <div class="chat-popup-sidebar">
+                <div class="chat-popup-topbar">
+                    <div>
+                        <div class="sidebar-title" style="margin-bottom: 0.35rem;">Messages</div>
+                        <div class="chat-popup-subtitle">Live conversations without leaving the feed.</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="toggleMessagesPopup(false)">Close</button>
+                </div>
                 <div class="messages-list" id="messages-list">
                     <!-- Users will be loaded here -->
                 </div>
             </div>
-        </div>
-        <div class="message-chat">
-            <div class="message-header">
-                <div class="post-avatar" id="chat-avatar">?</div>
-                <div>
-                    <div class="post-author" id="chat-username">Select a user</div>
-                    <div class="post-time" id="chat-status">Start a conversation</div>
+            <div class="chat-popup-panel">
+                <div class="message-header">
+                    <div class="post-avatar" id="chat-avatar">?</div>
+                    <div>
+                        <div class="post-author" id="chat-username">Select a user</div>
+                        <div class="post-time" id="chat-status">Start a conversation</div>
+                    </div>
+                </div>
+                <div class="message-body" id="message-body">
+                    <div class="text-center" style="padding: 3rem; color: var(--text-muted);">
+                        <span class="material-symbols-outlined" style="font-size: 3rem; opacity: 0.3;">chat</span>
+                        <p style="margin-top: 1rem; font-weight: 700; text-transform: uppercase; font-size: 0.75rem;">Select
+                            a user to start messaging</p>
+                    </div>
+                </div>
+                <div class="message-input-area">
+                    <input type="text" id="message-input" class="input" placeholder="Type a message..." />
+                    <button class="btn btn-primary btn-icon" onclick="sendMessage()">
+                        <span class="material-symbols-outlined">send</span>
+                    </button>
                 </div>
             </div>
-            <div class="message-body" id="message-body">
-                <div class="text-center" style="padding: 3rem; color: var(--text-muted);">
-                    <span class="material-symbols-outlined" style="font-size: 3rem; opacity: 0.3;">chat</span>
-                    <p style="margin-top: 1rem; font-weight: 700; text-transform: uppercase; font-size: 0.75rem;">Select
-                        a user to start messaging</p>
-                </div>
-            </div>
-            <div class="message-input-area">
-                <input type="text" id="message-input" class="input" placeholder="Type a message..." />
-                <button class="btn btn-primary btn-icon" onclick="sendMessage()">
-                    <span class="material-symbols-outlined">send</span>
-                </button>
-            </div>
         </div>
+
+        <div class="chat-toast-stack" id="chat-toast-stack"></div>
     </div>
 
     <!-- NOTIFICATIONS CONTAINER -->

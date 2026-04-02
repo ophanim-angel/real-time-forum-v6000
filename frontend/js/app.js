@@ -2,6 +2,7 @@
 
 // Current logged-in user
 let currentUser = null;
+const AUTH_PATHS = new Set(['/login', '/register']);
 
 // ==================== INITIALIZATION ====================
 
@@ -22,23 +23,84 @@ function checkAuth() {
         try {
             currentUser = JSON.parse(user);
             window.currentUser = currentUser; // Ensure global sync
-            showView('feed');
+            showView('feed', { replaceHistory: true });
             if (window.initWebSocket) initWebSocket();
         } catch (error) {
             console.error('Error parsing user data:', error);
             localStorage.removeItem('jwt_token');
             localStorage.removeItem('user_data');
-            showView('auth');
+            showView('auth', { replaceHistory: true });
         }
     } else {
-        showView('auth');
+        showView('auth', { replaceHistory: true });
     }
 }
 
 // ==================== ROUTER (Show/Hide Views) ====================
 
 // Show specific view, hide others
-function showView(viewName) {
+function getAuthModeFromPath(pathname = window.location.pathname) {
+    if (pathname === '/register') {
+        return 'register';
+    }
+    return 'login';
+}
+
+function isAuthPath(pathname = window.location.pathname) {
+    return AUTH_PATHS.has(pathname);
+}
+
+function navigateToPath(path, options = {}) {
+    const { replaceHistory = false } = options;
+
+    if (window.location.pathname === path) {
+        return;
+    }
+
+    const historyMethod = replaceHistory ? 'replaceState' : 'pushState';
+    window.history[historyMethod]({}, '', path);
+}
+
+function updateHistoryForView(viewName, options = {}) {
+    const { replaceHistory = false, updateHistory = true } = options;
+    let nextPath = '/';
+
+    if (!updateHistory) {
+        return;
+    }
+
+    if (viewName === 'auth') {
+        nextPath = getAuthModeFromPath() === 'register' ? '/register' : '/login';
+    }
+
+    navigateToPath(nextPath, { replaceHistory });
+}
+
+function syncAuthFormWithPath() {
+    if (!window.showLogin || !window.showRegister) {
+        return;
+    }
+
+    if (getAuthModeFromPath() === 'register') {
+        window.showRegister(false);
+    } else {
+        window.showLogin(false);
+    }
+}
+
+function routeFromLocation() {
+    const token = localStorage.getItem('jwt_token');
+    const user = localStorage.getItem('user_data');
+
+    if (token && user && !isAuthPath()) {
+        showView('feed', { updateHistory: false });
+        return;
+    }
+
+    showView('auth', { updateHistory: false });
+}
+
+function showView(viewName, options = {}) {
     // Hide all views
     document.getElementById('view-auth').classList.add('hidden');
     document.getElementById('view-feed').classList.add('hidden');
@@ -49,30 +111,57 @@ function showView(viewName) {
     if (view) {
         view.classList.remove('hidden');
 
+        if (viewName === 'auth') {
+            syncAuthFormWithPath();
+        }
+
         // Load posts when feed view is shown
         if (viewName === 'feed') {
             loadPosts();
         }
 
-        // Load messages list when messages view is shown
-        if (viewName === 'messages') {
-            loadMessagesList();
-            const globalBadge = document.getElementById('nav-global-badge');
-            if (globalBadge) globalBadge.remove();
+        if (viewName === 'feed' && window.toggleMessagesPopup) {
+            window.toggleMessagesPopup(false);
         }
     }
+
+    updateHistoryForView(viewName, options);
 
     // Update navigation bar
     const navAuth = document.getElementById('nav-auth');
     if (viewName === 'auth') {
         navAuth.classList.add('hidden');
-        document.title = 'AGORA | Login';
+        if (window.toggleMessagesPopup) {
+            window.toggleMessagesPopup(false);
+        }
+        if (window.toggleCreatePost) {
+            window.toggleCreatePost(false);
+        }
+        document.getElementById('notifications').innerHTML = '';
+
+        if (getAuthModeFromPath() === 'register') {
+            document.title = 'AGORA | Register';
+        } else {
+            document.title = 'AGORA | Login';
+        }
     } else {
         navAuth.classList.remove('hidden');
         document.title = 'AGORA | Real-Time Forum';
 
         if (currentUser) {
             document.getElementById('nav-username').textContent = `@${currentUser.nickname}`;
+        }
+
+        const navCreateBtn = document.getElementById('nav-create-btn');
+        if (navCreateBtn) {
+            navCreateBtn.classList.toggle('hidden', viewName !== 'feed');
+            if (viewName !== 'feed') {
+                navCreateBtn.classList.remove('active');
+            }
+        }
+
+        if (viewName !== 'feed' && window.toggleCreatePost) {
+            window.toggleCreatePost(false);
         }
     }
 }
@@ -195,9 +284,8 @@ function setupGlobalEventListeners() {
         }
     });
 
-    // Handle browser back/forward buttons
     window.addEventListener('popstate', () => {
-        // Could add routing logic here for SPA navigation
+        routeFromLocation();
     });
 
     // Auto-hide notifications after timeout
@@ -222,6 +310,7 @@ window.escapeHTML = escapeHTML;
 window.getTimeAgo = getTimeAgo;
 window.formatNumber = formatNumber;
 window.currentUser = currentUser;
+window.navigateToPath = navigateToPath;
 
 // Update currentUser when auth changes
 function setCurrentUser(user) {

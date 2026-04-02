@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"toolKit/backend/handlers"
 	"toolKit/backend/middlewares"
 	"toolKit/backend/ws"
@@ -13,6 +15,23 @@ import (
 )
 
 var db *sql.DB
+
+func serveFrontendApp(w http.ResponseWriter, r *http.Request) {
+	frontendDir := http.Dir("./frontend")
+	fileServer := http.FileServer(frontendDir)
+
+	switch r.URL.Path {
+	case "/", "/login", "/register":
+		indexPath := filepath.Join("frontend", "index.html")
+		if _, err := os.Stat(indexPath); err != nil {
+			http.Error(w, "index.html not found", http.StatusInternalServerError)
+			return
+		}
+		http.ServeFile(w, r, indexPath)
+	default:
+		fileServer.ServeHTTP(w, r)
+	}
+}
 
 func main() {
 	// 1. Database Connection
@@ -39,9 +58,8 @@ func main() {
 	authHandler := &handlers.AuthHandler{DB: db}
 	postHandler := &handlers.PostHandler{DB: db}
 	commentHandler := &handlers.CommentHandler{DB: db}
-	chatHandler := &handlers.ChatHandler{DB: db}
-
 	wsManager := ws.NewManager(db)
+	chatHandler := &handlers.ChatHandler{DB: db, Manager: wsManager}
 
 	// 4. Routes Configuration
 	mux := http.NewServeMux()
@@ -63,6 +81,7 @@ func main() {
 	// Comments endpoints
 	mux.Handle("/api/comments", middlewares.RequireAuth(http.HandlerFunc(commentHandler.GetComments)))
 	mux.Handle("/api/comments/create", middlewares.RequireAuth(http.HandlerFunc(commentHandler.CreateComment)))
+	mux.Handle("/api/comments/react", middlewares.RequireAuth(http.HandlerFunc(commentHandler.ReactToComment)))
 
 	// Chat endpoints
 	mux.Handle("/api/chat/users", middlewares.RequireAuth(http.HandlerFunc(chatHandler.GetUsers)))
@@ -73,8 +92,7 @@ func main() {
 	mux.HandleFunc("/ws", wsManager.ServeWS)
 
 	// --- Frontend (SPA) ---
-	fs := http.FileServer(http.Dir("./frontend"))
-	mux.Handle("/", fs)
+	mux.HandleFunc("/", serveFrontendApp)
 
 	// 5. Start Server
 	log.Println("Server starting on http://localhost:8080")

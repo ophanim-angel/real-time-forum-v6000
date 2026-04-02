@@ -10,6 +10,7 @@ type Post struct {
 	Category     string `json:"category"`
 	Views        string `json:"views"`
 	CreatedAt    string `json:"created_at"`
+	Comments     int    `json:"comments"`
 	Likes        int    `json:"likes"`
 	Dislikes     int    `json:"dislikes"`
 	UserReaction string `json:"user_reaction"`
@@ -24,12 +25,15 @@ type CreatePostInput struct {
 
 // Comment represents a comment in the database
 type Comment struct {
-	ID        string `json:"id"`
-	PostID    string `json:"post_id"`
-	UserID    string `json:"user_id"`
-	Nickname  string `json:"nickname"`
-	Content   string `json:"content"`
-	CreatedAt string `json:"created_at"`
+	ID           string `json:"id"`
+	PostID       string `json:"post_id"`
+	UserID       string `json:"user_id"`
+	Nickname     string `json:"nickname"`
+	Content      string `json:"content"`
+	CreatedAt    string `json:"created_at"`
+	Likes        int    `json:"likes"`
+	Dislikes     int    `json:"dislikes"`
+	UserReaction string `json:"user_reaction"`
 }
 
 // PostReaction represents a reaction (like, love, etc.)

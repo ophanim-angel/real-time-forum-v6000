@@ -1,8 +1,82 @@
 // ==================== FEED FUNCTIONS ====================
 
+let allPosts = [];
+let latestPostsRequestId = 0;
+
+function formatTopicLabel(topic) {
+    if (!topic) return 'General';
+    return topic.charAt(0).toUpperCase() + topic.slice(1);
+}
+
+function parsePostTopics(category) {
+    if (!category) return ['general'];
+
+    const topics = category
+        .split(',')
+        .map(topic => topic.trim().toLowerCase())
+        .filter(Boolean);
+
+    return topics.length > 0 ? topics : ['general'];
+}
+
+function getSelectedPostTopics() {
+    return Array.from(document.querySelectorAll('input[name="post-topic"]:checked'))
+        .map(input => input.value);
+}
+
+function getFeedFilters() {
+    const selectedTopics = Array.from(document.querySelectorAll('input[name="feed-topic"]:checked'))
+        .map(input => input.value);
+    const likedOnly = document.getElementById('feed-liked-filter')?.checked || false;
+
+    return { topics: selectedTopics, likedOnly };
+}
+
+function buildPostsQuery() {
+    const { topics, likedOnly } = getFeedFilters();
+    const params = new URLSearchParams();
+
+    if (topics.length > 0) {
+        params.set('topic', topics.join(','));
+    }
+
+    if (likedOnly) {
+        params.set('liked', 'true');
+    }
+
+    const queryString = params.toString();
+    return queryString ? `?${queryString}` : '';
+}
+
+function renderPosts(posts) {
+    const container = document.getElementById('posts-container');
+
+    if (!posts || posts.length === 0) {
+        const { topics, likedOnly } = getFeedFilters();
+        const emptyMessage = topics.length > 0 || likedOnly
+            ? 'No posts match the current filters.'
+            : 'No posts yet. Be the first!';
+
+        container.innerHTML = `
+            <div class="text-center" style="padding: 3rem; color: var(--text-muted);">
+                <span class="material-symbols-outlined" style="font-size: 3rem; opacity: 0.3;">inbox</span>
+                <p style="margin-top: 1rem; font-weight: 700; text-transform: uppercase; font-size: 0.75rem;">${emptyMessage}</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = '';
+    posts.forEach(post => {
+        const postElement = createPostElement(post);
+        container.appendChild(postElement);
+    });
+}
+
 // Load Posts from API
 async function loadPosts() {
     const container = document.getElementById('posts-container');
+    const requestId = ++latestPostsRequestId;
     container.innerHTML = `
         <div class="loading">
             <div class="spinner"></div>
@@ -10,25 +84,17 @@ async function loadPosts() {
     `;
 
     try {
-        const posts = await apiRequest('/api/posts', 'GET');
-
-        if (!posts || posts.length === 0) {
-            container.innerHTML = `
-                <div class="text-center" style="padding: 3rem; color: var(--text-muted);">
-                    <span class="material-symbols-outlined" style="font-size: 3rem; opacity: 0.3;">inbox</span>
-                    <p style="margin-top: 1rem; font-weight: 700; text-transform: uppercase; font-size: 0.75rem;">No posts yet. Be the first!</p>
-                </div>
-            `;
+        const posts = await apiRequest(`/api/posts${buildPostsQuery()}`, 'GET');
+        if (requestId !== latestPostsRequestId) {
             return;
         }
-
-        container.innerHTML = '';
-        posts.forEach(post => {
-            const postElement = createPostElement(post);
-            container.appendChild(postElement);
-        });
+        allPosts = posts || [];
+        renderPosts(allPosts);
 
     } catch (error) {
+        if (requestId !== latestPostsRequestId) {
+            return;
+        }
         console.error('Error loading posts:', error);
         container.innerHTML = `
             <div class="text-center" style="padding: 3rem; color: var(--error);">
@@ -47,13 +113,16 @@ function createPostElement(post) {
 
     const timeAgo = getTimeAgo(post.created_at);
     const initial = post.nickname ? post.nickname.charAt(0).toUpperCase() : '?';
+    const topicMarkup = parsePostTopics(post.category)
+        .map(topic => `<span class="post-category-chip">${escapeHTML(formatTopicLabel(topic))}</span>`)
+        .join('');
 
     card.innerHTML = `
         <div class="post-header">
             <div class="post-avatar">${initial}</div>
             <div class="post-meta">
                 <span class="post-author">${escapeHTML(post.nickname || 'Anonymous')}</span>
-                <span class="post-category">${escapeHTML(post.category || 'General')}</span>
+                <div class="post-category-list">${topicMarkup}</div>
                 <span class="post-time">${timeAgo}</span>
             </div>
         </div>
@@ -72,7 +141,7 @@ function createPostElement(post) {
             </button>
             <button class="post-action" onclick="toggleComments('${post.id}')">
                 <span class="material-symbols-outlined">chat_bubble</span>
-                <span>Comments</span>
+                <span>${post.comments || 0}</span>
             </button>
             ${currentUser && currentUser.user_id === post.user_id ? `
             <button class="post-action delete" onclick="deletePost('${post.id}')">
@@ -93,13 +162,8 @@ function createPostElement(post) {
 async function createPost() {
     const title = document.getElementById('post-title').value.trim();
     const content = document.getElementById('post-content').value.trim();
-
-    // Get all selected categories
-    const categorySelect = document.getElementById('post-category');
-    const selectedCategories = Array.from(categorySelect.selectedOptions).map(opt => opt.value);
-
-    // Default to 'general' if none selected
-    const category = selectedCategories.length > 0 ? selectedCategories.join(', ') : 'general';
+    const selectedTopics = getSelectedPostTopics();
+    const category = selectedTopics.length > 0 ? selectedTopics.join(', ') : 'general';
 
     if (!title || !content) {
         showNotification('Please fill title and content', 'error');
@@ -115,14 +179,12 @@ async function createPost() {
 
         showNotification('Post created!', 'success');
 
-        // Clear form
         document.getElementById('post-title').value = '';
         document.getElementById('post-content').value = '';
+        document.querySelectorAll('input[name="post-topic"]').forEach(input => {
+            input.checked = false;
+        });
 
-        // Reset category selection
-        Array.from(document.getElementById('post-category').options).forEach(opt => opt.selected = false);
-
-        // Reload posts
         loadPosts();
 
     } catch (error) {
@@ -154,10 +216,44 @@ async function reactToPost(postId, type) {
             type: type
         });
 
-        loadPosts(); // Reload posts to update counters and active state
+        loadPosts();
 
     } catch (error) {
         showNotification(error.message, 'error');
+    }
+}
+
+function updateFeedFilters() {
+    loadPosts();
+}
+
+function clearFeedFilters() {
+    const likedFilter = document.getElementById('feed-liked-filter');
+    document.querySelectorAll('input[name="feed-topic"]').forEach(input => {
+        input.checked = false;
+    });
+    if (likedFilter) likedFilter.checked = false;
+
+    loadPosts();
+}
+
+function toggleCreatePost(forceState) {
+    const panel = document.getElementById('create-post-panel');
+    const navButton = document.getElementById('nav-create-btn');
+    if (!panel) return;
+
+    const shouldOpen = typeof forceState === 'boolean'
+        ? forceState
+        : panel.classList.contains('hidden');
+
+    panel.classList.toggle('hidden', !shouldOpen);
+
+    if (navButton) {
+        navButton.classList.toggle('active', shouldOpen);
+    }
+
+    if (shouldOpen) {
+        document.getElementById('post-title')?.focus();
     }
 }
 
@@ -184,7 +280,6 @@ async function loadComments(postId) {
     try {
         const comments = await apiRequest(`/api/comments?post_id=${postId}`, 'GET');
 
-        // Render Add Comment Form
         let html = `
             <div class="comment-form-area" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; padding: 0.5rem 1rem;">
                 <input type="text" id="comment-input-${postId}" class="input" placeholder="Write a comment..." style="margin-bottom: 0;" autocomplete="off">
@@ -202,11 +297,21 @@ async function loadComments(postId) {
                 html += `
                     <div class="comment-item" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
                         <div class="post-avatar" style="width: 24px; height: 24px; font-size: 0.625rem;">${initial}</div>
-                        <div style="background: var(--bg); padding: 0.5rem 0.75rem; border-radius: var(--radius); flex: 1;">
+                        <div class="comment-bubble">
                             <div style="font-weight: 800; font-size: 0.625rem; text-transform: uppercase;">
                                 ${escapeHTML(c.nickname)} • <span style="color: var(--text-muted);">${timeAgo}</span>
                             </div>
                             <div style="font-size: 0.75rem; font-weight: 500; margin-top: 0.25rem;">${escapeHTML(c.content)}</div>
+                            <div class="comment-actions">
+                                <button class="comment-action ${c.user_reaction === 'like' ? 'ruby-red' : ''}" onclick="reactToComment('${c.post_id}', '${c.id}', 'like')">
+                                    <span class="material-symbols-outlined">thumb_up</span>
+                                    <span>${c.likes || 0}</span>
+                                </button>
+                                <button class="comment-action ${c.user_reaction === 'dislike' ? 'ruby-red' : ''}" onclick="reactToComment('${c.post_id}', '${c.id}', 'dislike')">
+                                    <span class="material-symbols-outlined">thumb_down</span>
+                                    <span>${c.dislikes || 0}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -216,7 +321,6 @@ async function loadComments(postId) {
         html += `</div>`;
         section.innerHTML = html;
 
-        // Add Enter key support
         setTimeout(() => {
             const input = document.getElementById(`comment-input-${postId}`);
             const submitBtn = document.getElementById(`comment-submit-${postId}`);
@@ -224,7 +328,6 @@ async function loadComments(postId) {
             if (input) {
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
-                        console.log(`Enter key pressed for post ${postId}`);
                         createComment(postId);
                     }
                 });
@@ -232,7 +335,6 @@ async function loadComments(postId) {
 
             if (submitBtn) {
                 submitBtn.addEventListener('click', () => {
-                    console.log(`Reply button clicked for post ${postId}`);
                     createComment(postId);
                 });
             }
@@ -244,15 +346,12 @@ async function loadComments(postId) {
 }
 
 async function createComment(postId) {
-    console.log(`createComment called for post: ${postId}`);
     const input = document.getElementById(`comment-input-${postId}`);
     if (!input) {
-        console.error(`Input field not found for post: ${postId}`);
         return;
     }
 
     const content = input.value.trim();
-    console.log(`Comment content: "${content}"`);
 
     if (!content) {
         showNotification('Comment cannot be empty', 'error');
@@ -260,19 +359,28 @@ async function createComment(postId) {
     }
 
     try {
-        console.log(`Sending API request to create comment...`);
-        const result = await apiRequest('/api/comments/create', 'POST', {
+        await apiRequest('/api/comments/create', 'POST', {
             post_id: postId,
             content: content
         });
-        console.log(`Comment created successfully:`, result);
 
-        // Clear and Reload comments instantly
         input.value = '';
         showNotification('Comment posted!', 'success');
         loadComments(postId);
     } catch (error) {
-        console.error(`Error in createComment:`, error);
+        showNotification(error.message, 'error');
+    }
+}
+
+async function reactToComment(postId, commentId, type) {
+    try {
+        await apiRequest('/api/comments/react', 'POST', {
+            comment_id: commentId,
+            type: type
+        });
+
+        loadComments(postId);
+    } catch (error) {
         showNotification(error.message, 'error');
     }
 }
@@ -284,3 +392,7 @@ window.deletePost = deletePost;
 window.reactToPost = reactToPost;
 window.toggleComments = toggleComments;
 window.createComment = createComment;
+window.reactToComment = reactToComment;
+window.updateFeedFilters = updateFeedFilters;
+window.clearFeedFilters = clearFeedFilters;
+window.toggleCreatePost = toggleCreatePost;

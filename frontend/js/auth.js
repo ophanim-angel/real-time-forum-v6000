@@ -1,15 +1,33 @@
 // ==================== AUTH FUNCTIONS ====================
 
 // Show Register Form
-function showRegister() {
+function showRegister(updateHistory = true) {
     document.getElementById('form-login').classList.add('hidden');
     document.getElementById('form-register').classList.remove('hidden');
+    document.title = 'AGORA | Register';
+
+    if (updateHistory && window.location.pathname !== '/register') {
+        if (window.navigateToPath) {
+            window.navigateToPath('/register');
+        } else {
+            window.history.pushState({}, '', '/register');
+        }
+    }
 }
 
 // Show Login Form
-function showLogin() {
+function showLogin(updateHistory = true) {
     document.getElementById('form-register').classList.add('hidden');
     document.getElementById('form-login').classList.remove('hidden');
+    document.title = 'AGORA | Login';
+
+    if (updateHistory && window.location.pathname !== '/login') {
+        if (window.navigateToPath) {
+            window.navigateToPath('/login');
+        } else {
+            window.history.pushState({}, '', '/login');
+        }
+    }
 }
 
 // Login

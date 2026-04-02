@@ -1,0 +1,4 @@
+./auth.go
+./chat.go
+./comment.go
+./post.go

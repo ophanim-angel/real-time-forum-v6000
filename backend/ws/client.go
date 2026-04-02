@@ -43,6 +43,10 @@ type SendMessagePayload struct {
 	Content    string `json:"content"`
 }
 
+type TypingPayload struct {
+	ReceiverID string `json:"receiver_id"`
+}
+
 // readPump pumps messages from the websocket connection to the hub.
 func (c *Client) readPump() {
 	defer func() {
@@ -75,6 +79,8 @@ func (c *Client) readPump() {
 			c.handleSendMessage(event.Payload)
 		case "typing":
 			c.handleTyping(event.Payload)
+		case "stop_typing":
+			c.handleStopTyping(event.Payload)
 		default:
 			log.Println("Unknown event type:", event.Type)
 		}
@@ -170,15 +176,28 @@ func (c *Client) handleSendMessage(payload json.RawMessage) {
 }
 
 func (c *Client) handleTyping(payload json.RawMessage) {
-	var data struct {
-		ReceiverID string `json:"receiver_id"`
-	}
+	var data TypingPayload
 	if err := json.Unmarshal(payload, &data); err != nil {
 		return
 	}
 
 	outMsgBytes, _ := json.Marshal(map[string]interface{}{
 		"type": "typing",
+		"payload": map[string]interface{}{
+			"sender_id": c.UserID,
+		},
+	})
+	c.Manager.SendToUser(data.ReceiverID, outMsgBytes)
+}
+
+func (c *Client) handleStopTyping(payload json.RawMessage) {
+	var data TypingPayload
+	if err := json.Unmarshal(payload, &data); err != nil {
+		return
+	}
+
+	outMsgBytes, _ := json.Marshal(map[string]interface{}{
+		"type": "stop_typing",
 		"payload": map[string]interface{}{
 			"sender_id": c.UserID,
 		},

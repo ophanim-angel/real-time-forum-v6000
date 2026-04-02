@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"toolKit/backend/middlewares"
 	"toolKit/backend/models"
 	"toolKit/backend/utils"
@@ -29,20 +30,55 @@ func (h *PostHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	topicFilter := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("topic")))
+	likedOnly := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("liked")), "true")
+
 	// Fetch posts with user nickname and reaction data
 	query := `
 		SELECT 
 			p.id, p.user_id, u.nickname, p.title, p.content, p.category, p.views, p.created_at,
+			(SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments,
 			(SELECT COUNT(*) FROM post_reactions WHERE post_id = p.id AND type = 'like') AS likes,
 			(SELECT COUNT(*) FROM post_reactions WHERE post_id = p.id AND type = 'dislike') AS dislikes,
 			IFNULL((SELECT type FROM post_reactions WHERE post_id = p.id AND user_id = ?), '') AS user_reaction
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
+	`
+
+	args := []interface{}{userID}
+	conditions := make([]string, 0, 2)
+
+	if topicFilter != "" && topicFilter != "all" {
+		topics := strings.Split(topicFilter, ",")
+		topicConditions := make([]string, 0, len(topics))
+		for _, topic := range topics {
+			topic = strings.TrimSpace(topic)
+			if topic == "" {
+				continue
+			}
+			topicConditions = append(topicConditions, "LOWER(p.category) LIKE ?")
+			args = append(args, "%"+topic+"%")
+		}
+		if len(topicConditions) > 0 {
+			conditions = append(conditions, "("+strings.Join(topicConditions, " OR ")+")")
+		}
+	}
+
+	if likedOnly {
+		conditions = append(conditions, "EXISTS (SELECT 1 FROM post_reactions pr WHERE pr.post_id = p.id AND pr.user_id = ? AND pr.type = 'like')")
+		args = append(args, userID)
+	}
+
+	if len(conditions) > 0 {
+		query += "\n\t\tWHERE " + strings.Join(conditions, " AND ")
+	}
+
+	query += `
 		ORDER BY p.created_at DESC
 		LIMIT 50
 	`
 
-	rows, err := h.DB.Query(query, userID)
+	rows, err := h.DB.Query(query, args...)
 	if err != nil {
 		log.Println("Error fetching posts:", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -55,7 +91,7 @@ func (h *PostHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		var post models.Post
 		err := rows.Scan(
 			&post.ID, &post.UserID, &post.Nickname, &post.Title,
-			&post.Content, &post.Category, &post.Views, &post.CreatedAt,
+			&post.Content, &post.Category, &post.Views, &post.CreatedAt, &post.Comments,
 			&post.Likes, &post.Dislikes, &post.UserReaction,
 		)
 		if err != nil {
