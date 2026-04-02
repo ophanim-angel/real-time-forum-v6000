@@ -272,6 +272,59 @@ nav {
     min-height: calc(100vh - 70px);
 }
 
+.not-found-shell {
+    min-height: calc(100vh - 70px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background:
+        linear-gradient(135deg, rgba(91, 19, 236, 0.12), rgba(240, 242, 245, 0.95)),
+        repeating-linear-gradient(-45deg, transparent 0, transparent 12px, rgba(0, 0, 0, 0.03) 12px, rgba(0, 0, 0, 0.03) 24px);
+}
+
+.not-found-card {
+    width: min(100%, 640px);
+    background: var(--white);
+    border: var(--border-width) solid var(--primary);
+    box-shadow: var(--shadow);
+    padding: 2.5rem;
+}
+
+.not-found-code {
+    font-size: clamp(4rem, 14vw, 7rem);
+    font-weight: 900;
+    line-height: 0.9;
+    color: var(--accent);
+    margin-bottom: 1rem;
+}
+
+.not-found-title {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 900;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+}
+
+.not-found-copy {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.6;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.not-found-path {
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 2px solid var(--primary);
+    background: var(--bg);
+    font-size: 0.75rem;
+    font-weight: 900;
+    word-break: break-all;
+}
+
 .auth-left {
     min-height: calc(100vh - 70px);
     background: var(--white);
@@ -1010,6 +1063,10 @@ nav {
 
     .feed-layout {
         grid-template-columns: 1fr;
+    }
+
+    .not-found-card {
+        padding: 2rem 1.25rem;
     }
 
     .feed-sidebar {

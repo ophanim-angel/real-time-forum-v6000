@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"toolKit/backend/handlers"
 	"toolKit/backend/middlewares"
 	"toolKit/backend/ws"
@@ -16,20 +17,43 @@ import (
 
 var db *sql.DB
 
+func serveSPA(w http.ResponseWriter, r *http.Request, statusCode int) {
+	indexPath := filepath.Join("frontend", "index.html")
+	content, err := os.ReadFile(indexPath)
+	if err != nil {
+		http.Error(w, "index.html not found", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(statusCode)
+	_, _ = w.Write(content)
+}
+
+func isStaticAssetRequest(path string) bool {
+	ext := filepath.Ext(path)
+	return ext != ""
+}
+
 func serveFrontendApp(w http.ResponseWriter, r *http.Request) {
 	frontendDir := http.Dir("./frontend")
 	fileServer := http.FileServer(frontendDir)
 
+	if strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/ws" {
+		http.NotFound(w, r)
+		return
+	}
+
+	if isStaticAssetRequest(r.URL.Path) {
+		fileServer.ServeHTTP(w, r)
+		return
+	}
+
 	switch r.URL.Path {
 	case "/", "/login", "/register":
-		indexPath := filepath.Join("frontend", "index.html")
-		if _, err := os.Stat(indexPath); err != nil {
-			http.Error(w, "index.html not found", http.StatusInternalServerError)
-			return
-		}
-		http.ServeFile(w, r, indexPath)
+		serveSPA(w, r, http.StatusOK)
 	default:
-		fileServer.ServeHTTP(w, r)
+		serveSPA(w, r, http.StatusNotFound)
 	}
 }
 

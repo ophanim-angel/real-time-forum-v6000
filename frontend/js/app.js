@@ -3,6 +3,7 @@
 // Current logged-in user
 let currentUser = null;
 const AUTH_PATHS = new Set(['/login', '/register']);
+const APP_PATHS = new Set(['/', '/login', '/register']);
 const AUTH_STORAGE_KEYS = new Set(['jwt_token', 'user_data']);
 
 // ==================== INITIALIZATION ====================
@@ -22,12 +23,20 @@ function checkAuth() {
     if (session) {
         currentUser = session.user;
         window.currentUser = currentUser; // Ensure global sync
-        showView('feed', { replaceHistory: true });
-        if (window.initWebSocket) initWebSocket();
-        return;
+    } else {
+        if (localStorage.getItem('jwt_token') || localStorage.getItem('user_data')) {
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_data');
+        }
+        currentUser = null;
+        window.currentUser = null;
     }
 
-    clearSession({ updateStorage: true, replaceHistory: true });
+    routeFromLocation({ replaceHistory: true });
+
+    if (session && isKnownAppPath() && window.initWebSocket) {
+        initWebSocket();
+    }
 }
 
 // ==================== ROUTER (Show/Hide Views) ====================
@@ -42,6 +51,10 @@ function getAuthModeFromPath(pathname = window.location.pathname) {
 
 function isAuthPath(pathname = window.location.pathname) {
     return AUTH_PATHS.has(pathname);
+}
+
+function isKnownAppPath(pathname = window.location.pathname) {
+    return APP_PATHS.has(pathname);
 }
 
 function navigateToPath(path, options = {}) {
@@ -83,11 +96,27 @@ function syncAuthFormWithPath() {
 }
 
 function routeFromLocation() {
-    const token = localStorage.getItem('jwt_token');
-    const user = localStorage.getItem('user_data');
+    const session = getStoredSession();
+    const pathname = window.location.pathname;
 
-    if (token && user && !isAuthPath()) {
+    if (!isKnownAppPath(pathname)) {
+        showView('not-found', {
+            updateHistory: false,
+            statusCode: 404,
+            title: 'Page Not Found',
+            message: 'The page you requested does not exist in this app.',
+            pathname
+        });
+        return;
+    }
+
+    if (session) {
         showView('feed', { updateHistory: false });
+        return;
+    }
+
+    if (pathname === '/') {
+        showView('auth', { updateHistory: false, replaceHistory: true });
         return;
     }
 
@@ -95,8 +124,16 @@ function routeFromLocation() {
 }
 
 function showView(viewName, options = {}) {
+    const {
+        statusCode = 404,
+        title = 'Page Not Found',
+        message = 'The page you requested does not exist in this app.',
+        pathname = window.location.pathname
+    } = options;
+
     // Hide all views
     document.getElementById('view-auth').classList.add('hidden');
+    document.getElementById('view-not-found').classList.add('hidden');
     document.getElementById('view-feed').classList.add('hidden');
     document.getElementById('view-messages').classList.add('hidden');
 
@@ -107,6 +144,18 @@ function showView(viewName, options = {}) {
 
         if (viewName === 'auth') {
             syncAuthFormWithPath();
+        }
+
+        if (viewName === 'not-found') {
+            const statusCodeEl = document.getElementById('not-found-status-code');
+            const titleEl = document.getElementById('not-found-title');
+            const messageEl = document.getElementById('not-found-message');
+            const pathEl = document.getElementById('not-found-path');
+
+            if (statusCodeEl) statusCodeEl.textContent = String(statusCode);
+            if (titleEl) titleEl.textContent = title;
+            if (messageEl) messageEl.textContent = message;
+            if (pathEl) pathEl.textContent = pathname;
         }
 
         // Load posts when feed view is shown
@@ -123,7 +172,7 @@ function showView(viewName, options = {}) {
 
     // Update navigation bar
     const navAuth = document.getElementById('nav-auth');
-    if (viewName === 'auth') {
+    if (viewName === 'auth' || viewName === 'not-found') {
         navAuth.classList.add('hidden');
         if (window.toggleMessagesPopup) {
             window.toggleMessagesPopup(false);
@@ -133,7 +182,9 @@ function showView(viewName, options = {}) {
         }
         document.getElementById('notifications').innerHTML = '';
 
-        if (getAuthModeFromPath() === 'register') {
+        if (viewName === 'not-found') {
+            document.title = `${statusCode} | ${title}`;
+        } else if (getAuthModeFromPath() === 'register') {
             document.title = 'AGORA | Register';
         } else {
             document.title = 'AGORA | Login';
@@ -164,6 +215,10 @@ function showView(viewName, options = {}) {
 
 // Show notification toast
 function showNotification(message, type = 'success') {
+    if (!message) {
+        return;
+    }
+
     const container = document.getElementById('notifications');
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
@@ -209,16 +264,22 @@ async function apiRequest(endpoint, method = 'GET', data = null) {
     // Check content type before parsing
     const contentType = response.headers.get('content-type');
 
-    let result;
+    let result = null;
+    let fallbackMessage = '';
     if (contentType && contentType.includes('application/json')) {
         result = await response.json();
     } else {
-        const text = await response.text();
-        throw new Error(text || 'Request failed');
+        fallbackMessage = await response.text();
     }
 
     // Handle errors
     if (!response.ok) {
+        const message = formatApiErrorMessage(
+            response.status,
+            response.statusText,
+            result?.message || fallbackMessage
+        );
+
         // If 401, token might be expired - log out user
         if (response.status === 401) {
             clearSession({
@@ -226,8 +287,9 @@ async function apiRequest(endpoint, method = 'GET', data = null) {
                 notify: true,
                 notificationMessage: 'Your session expired. Please log in again.'
             });
+            throw new Error('');
         }
-        throw new Error(result.message || 'Request failed');
+        throw new Error(message);
     }
 
     return result;
@@ -334,6 +396,10 @@ window.getTimeAgo = getTimeAgo;
 window.formatNumber = formatNumber;
 window.currentUser = currentUser;
 window.navigateToPath = navigateToPath;
+window.goHome = () => {
+    navigateToPath('/', { replaceHistory: true });
+    routeFromLocation();
+};
 
 // Update currentUser when auth changes
 function setCurrentUser(user) {
@@ -364,6 +430,18 @@ function getStoredSession() {
         console.error('Error parsing user data:', error);
         return null;
     }
+}
+
+function formatApiErrorMessage(statusCode, statusText, rawMessage) {
+    const normalizedMessage = (rawMessage || '').trim();
+    const safeStatusText = (statusText || 'Request Failed').trim();
+    const baseMessage = `${statusCode} ${safeStatusText}`;
+
+    if (!normalizedMessage || normalizedMessage.toLowerCase() === safeStatusText.toLowerCase()) {
+        return baseMessage;
+    }
+
+    return `${baseMessage}: ${normalizedMessage}`;
 }
 
 function clearSession(options = {}) {

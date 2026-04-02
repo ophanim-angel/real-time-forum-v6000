@@ -22,7 +22,7 @@
 
     <!-- NAVIGATION -->
     <nav>
-        <a href="/" class="logo" onclick="showView('feed'); return false;">
+        <a href="/" class="logo" onclick="goHome(); return false;">
             <div class="logo-icon">
                 <span class="material-symbols-outlined">groups</span>
             </div>
@@ -130,6 +130,19 @@
                         <button type="button" class="btn btn-outline btn-full" onclick="showLogin()">LOGIN</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOT FOUND VIEW -->
+    <div id="view-not-found" class="hidden">
+        <div class="not-found-shell">
+            <div class="not-found-card">
+                <div class="not-found-code" id="not-found-status-code">404</div>
+                <h1 class="not-found-title" id="not-found-title">Page Not Found</h1>
+                <p class="not-found-copy" id="not-found-message">The page you requested does not exist in this app.</p>
+                <p class="not-found-path" id="not-found-path">/unknown</p>
+                <button type="button" class="btn btn-primary" onclick="goHome()">Back To Home</button>
             </div>
         </div>
     </div>
