@@ -2,6 +2,7 @@ package ws
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -76,20 +77,29 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 func (m *Manager) addClient(c *Client) {
 	m.Lock()
-	defer m.Unlock()
 	m.clients[c] = true
-	log.Printf("Client added. Total: %d", len(m.clients))
+	total := len(m.clients)
+	m.Unlock()
+
+	log.Printf("Client added. Total: %d", total)
+	m.broadcastPresence(c.UserID, true)
 }
 
 func (m *Manager) removeClient(c *Client) {
 	m.Lock()
-	defer m.Unlock()
 
 	if _, ok := m.clients[c]; ok {
 		delete(m.clients, c)
 		close(c.Send)
-		log.Printf("Client removed. Total: %d", len(m.clients))
+		total := len(m.clients)
+		m.Unlock()
+
+		log.Printf("Client removed. Total: %d", total)
+		m.broadcastPresence(c.UserID, false)
+		return
 	}
+
+	m.Unlock()
 }
 
 // Broadcasts an event to all connected clients
@@ -122,4 +132,33 @@ func (m *Manager) SendToUser(userID string, message []byte) {
 			}
 		}
 	}
+}
+
+func (m *Manager) IsUserOnline(userID string) bool {
+	m.RLock()
+	defer m.RUnlock()
+
+	for client := range m.clients {
+		if client.UserID == userID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *Manager) broadcastPresence(userID string, isOnline bool) {
+	message, err := json.Marshal(map[string]interface{}{
+		"type": "presence_update",
+		"payload": map[string]interface{}{
+			"user_id":   userID,
+			"is_online": isOnline,
+		},
+	})
+	if err != nil {
+		log.Println("Error marshaling presence update:", err)
+		return
+	}
+
+	m.Broadcast(message)
 }

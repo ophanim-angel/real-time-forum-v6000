@@ -853,6 +853,33 @@ nav {
     transition: all 0.1s;
 }
 
+.message-user-avatar {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.user-status-dot {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--white);
+    background: #9ca3af;
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+.user-status-dot.online {
+    background: #22c55e;
+}
+
+.user-status-dot.offline {
+    background: #9ca3af;
+}
+
 .message-user:hover {
     transform: translate(-2px, -2px);
     box-shadow: var(--shadow-sm);

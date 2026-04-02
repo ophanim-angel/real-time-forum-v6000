@@ -35,6 +35,7 @@ function initWebSocket() {
         console.log('WebSocket connected');
         clearTimeout(reconnectTimeoutId);
         updateChatStatus('Connected');
+        loadMessagesList();
     };
 
     ws.onmessage = (event) => {
@@ -55,6 +56,7 @@ function initWebSocket() {
     ws.onclose = (event) => {
         ws = null;
         hideTypingIndicator();
+        markAllUsersOffline();
 
         if (currentChatUserId) {
             updateChatStatus('Disconnected');
@@ -126,6 +128,8 @@ function handleWebSocketEvent(event) {
             hideTypingIndicator();
             updateChatStatus('Connected');
         }
+    } else if (event.type === 'presence_update') {
+        setUserOnlineStatus(event.payload.user_id, event.payload.is_online);
     }
 }
 
@@ -211,6 +215,33 @@ function showIncomingMessageToast(message) {
     setTimeout(() => toast.remove(), 5000);
 }
 
+function setUserOnlineStatus(userId, isOnline) {
+    if (!userId) return;
+
+    const cachedUser = usersCache.find(user => user.id === userId);
+    if (cachedUser) {
+        cachedUser.is_online = Boolean(isOnline);
+    }
+
+    const statusDot = document.querySelector(`.message-user[data-userid="${userId}"] .user-status-dot`);
+    if (statusDot) {
+        statusDot.classList.toggle('online', Boolean(isOnline));
+        statusDot.classList.toggle('offline', !isOnline);
+    }
+}
+
+function markAllUsersOffline() {
+    usersCache = usersCache.map(user => ({
+        ...user,
+        is_online: false
+    }));
+
+    document.querySelectorAll('.user-status-dot').forEach(dot => {
+        dot.classList.remove('online');
+        dot.classList.add('offline');
+    });
+}
+
 // Load users for the sidebar
 async function loadMessagesList() {
     const listContainer = document.getElementById('messages-list');
@@ -247,7 +278,10 @@ async function loadMessagesList() {
             }
 
             userEl.innerHTML = `
-                <div class="post-avatar" style="width: 32px; height: 32px; font-size: 0.75rem;">${initial}</div>
+                <div class="message-user-avatar">
+                    <div class="post-avatar" style="width: 32px; height: 32px; font-size: 0.75rem;">${initial}</div>
+                    <span class="user-status-dot ${user.is_online ? 'online' : 'offline'}" title="${user.is_online ? 'Online' : 'Offline'}"></span>
+                </div>
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 800; font-size: 0.75rem;">${escapeHTML(user.nickname)}</div>
                     <div class="msg-snippet" style="font-size: 0.625rem; color: ${currentChatUserId === user.id ? 'var(--bg)' : 'var(--text-muted)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">

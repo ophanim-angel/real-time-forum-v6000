@@ -77,6 +77,7 @@ func (h *ChatHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 			"nickname":      nickname,
 			"last_msg_time": lastMsgTime.String,
 			"last_msg":      lastMsg.String,
+			"is_online":     h.Manager != nil && h.Manager.IsUserOnline(id),
 		})
 	}
 
