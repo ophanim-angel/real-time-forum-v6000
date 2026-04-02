@@ -111,7 +111,10 @@ function routeFromLocation() {
     }
 
     if (session) {
-        showView('feed', { updateHistory: false });
+        showView('feed', {
+            updateHistory: pathname !== '/',
+            replaceHistory: true
+        });
         return;
     }
 
