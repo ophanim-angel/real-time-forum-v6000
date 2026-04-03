@@ -10,8 +10,6 @@ type User struct {
 	LastName     string `json:"last_name"`
 	Age          int    `json:"age"`
 	Gender       string `json:"gender"`
-	AvatarURL    string `json:"avatar_url"`
-	IsOnline     bool   `json:"is_online"`
 	CreatedAt    string `json:"created_at"`
 	IsActive     bool   `json:"is_active"`
 }

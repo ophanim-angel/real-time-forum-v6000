@@ -16,8 +16,6 @@ func CreateTables(db *sql.DB) error {
 		last_name TEXT NOT NULL,
 		age INTEGER NOT NULL,
 		gender TEXT NOT NULL,
-		avatar_url TEXT DEFAULT '',
-		is_online BOOLEAN DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		is_active BOOLEAN DEFAULT 1
 	);`
@@ -116,5 +114,53 @@ func CreateTables(db *sql.DB) error {
 		}
 	}
 
+	return cleanupObsoleteColumns(db)
+}
+
+func cleanupObsoleteColumns(db *sql.DB) error {
+	obsoleteColumns := []string{"avatar_url", "is_online"}
+
+	for _, column := range obsoleteColumns {
+		exists, err := columnExists(db, "users", column)
+		if err != nil {
+			return err
+		}
+
+		if !exists {
+			continue
+		}
+
+		if _, err := db.Exec(`ALTER TABLE users DROP COLUMN ` + column); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func columnExists(db *sql.DB, tableName, columnName string) (bool, error) {
+	rows, err := db.Query(`PRAGMA table_info(` + tableName + `)`)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var dataType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+
+		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			return false, err
+		}
+
+		if name == columnName {
+			return true, nil
+		}
+	}
+
+	return false, rows.Err()
 }
