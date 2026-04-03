@@ -4,32 +4,27 @@
 let currentUser = null;
 const AUTH_PATHS = new Set(['/login', '/register']);
 const APP_PATHS = new Set(['/', '/login', '/register']);
-const AUTH_STORAGE_KEYS = new Set(['jwt_token', 'user_data']);
+const AUTH_STORAGE_KEYS = new Set(['user_data', 'csrf_token']);
 
 // ==================== INITIALIZATION ====================
 
 // Run when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    checkAuth();
     setupGlobalEventListeners();
+    checkAuth();
 });
 
 // ==================== AUTH CHECK ====================
 
-// Check if user is logged in (token in localStorage)
-function checkAuth() {
-    const session = getStoredSession();
+// Check if user is logged in by asking the server for the current session.
+async function checkAuth() {
+    const session = await fetchCurrentSession();
 
     if (session) {
-        currentUser = session.user;
-        window.currentUser = currentUser; // Ensure global sync
+        setCurrentUser(session.user);
+        setCSRFToken(session.csrfToken);
     } else {
-        if (localStorage.getItem('jwt_token') || localStorage.getItem('user_data')) {
-            localStorage.removeItem('jwt_token');
-            localStorage.removeItem('user_data');
-        }
-        currentUser = null;
-        window.currentUser = null;
+        clearSession({ updateStorage: true, notify: false });
     }
 
     routeFromLocation({ replaceHistory: true });
@@ -244,17 +239,17 @@ function showNotification(message, type = 'success') {
 
 // Make API requests with JWT token
 async function apiRequest(endpoint, method = 'GET', data = null) {
-    const token = localStorage.getItem('jwt_token');
     const options = {
         method,
+        credentials: 'same-origin',
         headers: {
             'Content-Type': 'application/json',
         }
     };
 
-    // Add JWT token if available
-    if (token) {
-        options.headers['Authorization'] = `Bearer ${token}`;
+    const csrfToken = getCSRFToken();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase()) && csrfToken) {
+        options.headers['X-CSRF-Token'] = csrfToken;
     }
 
     // Add request body if data provided
@@ -283,7 +278,7 @@ async function apiRequest(endpoint, method = 'GET', data = null) {
             result?.message || fallbackMessage
         );
 
-        // If 401, token might be expired - log out user
+        // If 401, session might be expired or revoked.
         if (response.status === 401) {
             clearSession({
                 updateStorage: true,
@@ -416,21 +411,62 @@ function setCurrentUser(user) {
 }
 window.setCurrentUser = setCurrentUser;
 
-function getStoredSession() {
-    const token = localStorage.getItem('jwt_token');
-    const user = localStorage.getItem('user_data');
+function setCSRFToken(token) {
+    if (token) {
+        localStorage.setItem('csrf_token', token);
+    } else {
+        localStorage.removeItem('csrf_token');
+    }
+}
+window.setCSRFToken = setCSRFToken;
 
-    if (!token || !user) {
+function getCSRFToken() {
+    return localStorage.getItem('csrf_token') || '';
+}
+
+function getStoredSession() {
+    const user = localStorage.getItem('user_data');
+    const csrfToken = localStorage.getItem('csrf_token');
+
+    if (!user || !csrfToken) {
         return null;
     }
 
     try {
         return {
-            token,
-            user: JSON.parse(user)
+            user: JSON.parse(user),
+            csrfToken
         };
     } catch (error) {
         console.error('Error parsing user data:', error);
+        return null;
+    }
+}
+
+async function fetchCurrentSession() {
+    try {
+        const response = await fetch('/api/session', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const result = await response.json();
+        return {
+            user: {
+                user_id: result.user_id,
+                nickname: result.nickname
+            },
+            csrfToken: result.csrf_token
+        };
+    } catch (error) {
+        console.error('Error loading session:', error);
         return null;
     }
 }
@@ -456,13 +492,13 @@ function clearSession(options = {}) {
     } = options;
     const hadSession = Boolean(
         currentUser ||
-        localStorage.getItem('jwt_token') ||
-        localStorage.getItem('user_data')
+        localStorage.getItem('user_data') ||
+        localStorage.getItem('csrf_token')
     );
 
     if (updateStorage) {
-        localStorage.removeItem('jwt_token');
         localStorage.removeItem('user_data');
+        localStorage.removeItem('csrf_token');
     }
 
     currentUser = null;

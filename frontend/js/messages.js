@@ -19,15 +19,12 @@ function initWebSocket() {
 
     if (!window.currentUser) return;
 
-    const token = localStorage.getItem('jwt_token');
-    if (!token) return;
-
     shouldReconnect = true;
     clearTimeout(reconnectTimeoutId);
 
     // Connect to WebSocket using current host
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
 
     ws = new WebSocket(wsUrl);
 
@@ -67,7 +64,7 @@ function initWebSocket() {
         }
 
         console.log(`WebSocket disconnected (${event.code}). Reconnecting in 3s...`);
-        if (localStorage.getItem('jwt_token') && window.currentUser) {
+        if (window.currentUser) {
             reconnectTimeoutId = setTimeout(() => {
                 if (!ws) {
                     initWebSocket();
@@ -130,6 +127,15 @@ function handleWebSocketEvent(event) {
         }
     } else if (event.type === 'presence_update') {
         setUserOnlineStatus(event.payload.user_id, event.payload.is_online);
+    } else if (event.type === 'session_revoked') {
+        shouldReconnect = false;
+        if (window.clearSession) {
+            window.clearSession({
+                updateStorage: true,
+                notify: true,
+                notificationMessage: event.payload?.message || 'Your session was replaced by a new login.'
+            });
+        }
     }
 }
 

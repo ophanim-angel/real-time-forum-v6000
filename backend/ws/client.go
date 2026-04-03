@@ -25,10 +25,11 @@ const (
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
-	Manager *Manager
-	Conn    *websocket.Conn
-	UserID  string
-	Send    chan []byte
+	Manager   *Manager
+	Conn      *websocket.Conn
+	UserID    string
+	SessionID string
+	Send      chan []byte
 }
 
 // Event structure for incoming WS messages

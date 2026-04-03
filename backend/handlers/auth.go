@@ -9,13 +9,15 @@ import (
 	middleware "toolKit/backend/middlewares"
 	"toolKit/backend/models"
 	"toolKit/backend/utils"
+	"toolKit/backend/ws"
 
 	"github.com/mattn/go-sqlite3"
 )
 
 // AuthHandler holds the DB connection
 type AuthHandler struct {
-	DB *sql.DB
+	DB      *sql.DB
+	Manager *ws.Manager
 }
 
 // Register handles user registration
@@ -145,21 +147,34 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 7. Generate JWT Token
-	token, err := utils.GenerateToken(userID, nickname)
-	if err != nil {
-		log.Println("Token generation error:", err)
+	// 7. Rotate existing sessions so only one browser stays active
+	if err := utils.DeleteSessionsByUserID(r.Context(), h.DB, userID); err != nil {
+		log.Println("Session cleanup error:", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	// 8. Success Response
+	// 8. Create DB-backed session and CSRF token
+	session, token, err := utils.CreateSession(r.Context(), h.DB, userID, nickname)
+	if err != nil {
+		log.Println("Session creation error:", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	utils.SetSessionCookie(w, token, session.ExpiresAt, isSecureRequest(r))
+
+	if h.Manager != nil {
+		h.Manager.DisconnectUserSessions(userID, session.ID)
+	}
+
+	// 9. Success Response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message":  "Login successful",
-		"token":    token,
-		"user_id":  userID,
-		"nickname": nickname,
+		"message":    "Login successful",
+		"user_id":    userID,
+		"nickname":   nickname,
+		"csrf_token": session.CSRFToken,
 	})
 }
 
@@ -170,12 +185,19 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user_id from context (using middleware helper)
-	userID := middleware.GetUserIDFromContext(r)
-	if userID == "" {
+	session := middleware.GetSessionFromContext(r)
+	if session == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	if err := utils.DeleteSessionByID(r.Context(), h.DB, session.ID); err != nil {
+		log.Println("Session delete error:", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	utils.ClearSessionCookie(w, isSecureRequest(r))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -183,7 +205,32 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *AuthHandler) GetSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	session, err := utils.GetSessionFromRequest(r.Context(), h.DB, r)
+	if err != nil {
+		utils.ClearSessionCookie(w, isSecureRequest(r))
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"user_id":    session.UserID,
+		"nickname":   session.Nickname,
+		"csrf_token": session.CSRFToken,
+	})
+}
+
 // Helper: Sanitize string input (trim spaces)
 func sanitizeInput(s string) string {
 	return strings.TrimSpace(s)
+}
+
+func isSecureRequest(r *http.Request) bool {
+	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }

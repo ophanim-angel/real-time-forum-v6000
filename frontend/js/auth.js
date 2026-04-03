@@ -43,6 +43,7 @@ async function login() {
     try {
         const response = await fetch('/api/login', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -72,13 +73,16 @@ async function login() {
             nickname: result.nickname
         };
 
-        localStorage.setItem('jwt_token', result.token);
         if (window.setCurrentUser) {
             window.setCurrentUser(user);
         } else {
             currentUser = user;
             window.currentUser = user;
             localStorage.setItem('user_data', JSON.stringify(user));
+        }
+
+        if (window.setCSRFToken) {
+            window.setCSRFToken(result.csrf_token);
         }
 
         if (window.initWebSocket) window.initWebSocket();
@@ -111,6 +115,7 @@ async function register() {
     try {
         const response = await fetch('/api/register', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -143,14 +148,7 @@ async function register() {
 // Logout
 async function logout() {
     try {
-        const token = localStorage.getItem('jwt_token');
-        await fetch('/api/logout', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            }
-        });
+        await apiRequest('/api/logout', 'POST');
     } catch (error) {
         // Ignore errors, still clear local data
     }
@@ -164,8 +162,8 @@ async function logout() {
         return;
     }
 
-    localStorage.removeItem('jwt_token');
     localStorage.removeItem('user_data');
+    localStorage.removeItem('csrf_token');
     currentUser = null;
     window.currentUser = null;
 

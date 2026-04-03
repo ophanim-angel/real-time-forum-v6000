@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
 	"sync"
-	"toolKit/backend/utils"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -15,8 +16,19 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	// IN PRODUCTION: Check origin
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+
+		parsedOrigin, err := url.Parse(origin)
+		if err != nil {
+			return false
+		}
+
+		return parsedOrigin.Host == r.Host
+	},
 }
 
 // Manager holds all connected clients
@@ -36,6 +48,13 @@ func NewManager(db *sql.DB) *Manager {
 
 // ServeWS upgrades the HTTP connection to a WebSocket connection
 func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
+	session, err := AuthenticateRequest(r, m.DB)
+	if err != nil {
+		log.Println("WebSocket connection rejected:", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Upgrade connection
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -43,34 +62,19 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Get token from URL query params
-	tokenString := r.URL.Query().Get("token")
-	if tokenString == "" {
-		log.Println("WebSocket connection rejected: No token")
-		conn.Close()
-		return
-	}
-
-	// 2. Validate token format & signature
-	claims, err := utils.ValidateToken(tokenString)
-	if err != nil {
-		log.Println("WebSocket connection rejected: Invalid token:", err)
-		conn.Close()
-		return
-	}
-
-	// 3. Create a new client wrapper
+	// 1. Create a new client wrapper
 	client := &Client{
-		Manager: m,
-		Conn:    conn,
-		UserID:  claims.UserID,
-		Send:    make(chan []byte, 256),
+		Manager:   m,
+		Conn:      conn,
+		UserID:    session.UserID,
+		SessionID: session.ID,
+		Send:      make(chan []byte, 256),
 	}
 
-	// 4. Register client
+	// 2. Register client
 	m.addClient(client)
 
-	// 5. Start read/write pumps
+	// 3. Start read/write pumps
 	go client.readPump()
 	go client.writePump()
 }
@@ -131,6 +135,42 @@ func (m *Manager) SendToUser(userID string, message []byte) {
 				client.Conn.Close()
 			}
 		}
+	}
+}
+
+func (m *Manager) DisconnectUserSessions(userID, excludeSessionID string) {
+	m.RLock()
+	var targets []*Client
+	for client := range m.clients {
+		if client.UserID == userID && client.SessionID != excludeSessionID {
+			targets = append(targets, client)
+		}
+	}
+	m.RUnlock()
+
+	if len(targets) == 0 {
+		return
+	}
+
+	payload, err := json.Marshal(map[string]interface{}{
+		"type": "session_revoked",
+		"payload": map[string]interface{}{
+			"message": "Your session was replaced by a new login.",
+		},
+	})
+	if err != nil {
+		log.Println("Error marshaling session revoked message:", err)
+	}
+
+	for _, client := range targets {
+		if payload != nil {
+			select {
+			case client.Send <- payload:
+			default:
+			}
+		}
+		_ = client.Conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "session revoked"), time.Now().Add(writeWait))
+		_ = client.Conn.Close()
 	}
 }
 

@@ -86,6 +86,19 @@ func CreateTables(db *sql.DB) error {
 		UNIQUE(user_id, comment_id) -- Prevent double like from same user
 	);`
 
+	// 7. Sessions Table
+	createSessions := `
+	CREATE TABLE IF NOT EXISTS sessions (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		token_hash TEXT UNIQUE NOT NULL,
+		csrf_token TEXT NOT NULL,
+		expires_at DATETIME NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+	);`
+
 	// Execute all queries
 	queries := []string{
 		createUsers,
@@ -94,6 +107,7 @@ func CreateTables(db *sql.DB) error {
 		createMessages,
 		createPostReactions,
 		createCommentReactions,
+		createSessions,
 	}
 
 	for _, query := range queries {

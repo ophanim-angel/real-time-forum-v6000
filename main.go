@@ -79,11 +79,12 @@ func main() {
 	log.Println("Tables created successfully")
 
 	// 3. Setup Handlers & Websocket
-	authHandler := &handlers.AuthHandler{DB: db}
+	wsManager := ws.NewManager(db)
+	authHandler := &handlers.AuthHandler{DB: db, Manager: wsManager}
 	postHandler := &handlers.PostHandler{DB: db}
 	commentHandler := &handlers.CommentHandler{DB: db}
-	wsManager := ws.NewManager(db)
 	chatHandler := &handlers.ChatHandler{DB: db, Manager: wsManager}
+	requireAuth := middlewares.RequireAuth(db)
 
 	// 4. Routes Configuration
 	mux := http.NewServeMux()
@@ -91,26 +92,27 @@ func main() {
 	// --- Public Routes ---
 	mux.HandleFunc("/api/register", authHandler.Register)
 	mux.HandleFunc("/api/login", authHandler.Login)
+	mux.HandleFunc("/api/session", authHandler.GetSession)
 
-	// --- Protected Routes (JWT) ---
-	mux.Handle("/api/logout", middlewares.RequireAuth(http.HandlerFunc(authHandler.Logout)))
+	// --- Protected Routes (Session Cookie) ---
+	mux.Handle("/api/logout", requireAuth(http.HandlerFunc(authHandler.Logout)))
 
 	// Posts endpoints
-	mux.Handle("/api/posts", middlewares.RequireAuth(http.HandlerFunc(postHandler.GetPosts)))
-	mux.Handle("/api/posts/create", middlewares.RequireAuth(http.HandlerFunc(postHandler.CreatePost)))
-	mux.Handle("/api/posts/delete", middlewares.RequireAuth(http.HandlerFunc(postHandler.DeletePost)))
-	mux.Handle("/api/posts/react", middlewares.RequireAuth(http.HandlerFunc(postHandler.ReactToPost)))
-	mux.Handle("/api/posts/reactions", middlewares.RequireAuth(http.HandlerFunc(postHandler.GetPostReactions)))
+	mux.Handle("/api/posts", requireAuth(http.HandlerFunc(postHandler.GetPosts)))
+	mux.Handle("/api/posts/create", requireAuth(http.HandlerFunc(postHandler.CreatePost)))
+	mux.Handle("/api/posts/delete", requireAuth(http.HandlerFunc(postHandler.DeletePost)))
+	mux.Handle("/api/posts/react", requireAuth(http.HandlerFunc(postHandler.ReactToPost)))
+	mux.Handle("/api/posts/reactions", requireAuth(http.HandlerFunc(postHandler.GetPostReactions)))
 
 	// Comments endpoints
-	mux.Handle("/api/comments", middlewares.RequireAuth(http.HandlerFunc(commentHandler.GetComments)))
-	mux.Handle("/api/comments/create", middlewares.RequireAuth(http.HandlerFunc(commentHandler.CreateComment)))
-	mux.Handle("/api/comments/react", middlewares.RequireAuth(http.HandlerFunc(commentHandler.ReactToComment)))
+	mux.Handle("/api/comments", requireAuth(http.HandlerFunc(commentHandler.GetComments)))
+	mux.Handle("/api/comments/create", requireAuth(http.HandlerFunc(commentHandler.CreateComment)))
+	mux.Handle("/api/comments/react", requireAuth(http.HandlerFunc(commentHandler.ReactToComment)))
 
 	// Chat endpoints
-	mux.Handle("/api/chat/users", middlewares.RequireAuth(http.HandlerFunc(chatHandler.GetUsers)))
-	mux.Handle("/api/chat/history", middlewares.RequireAuth(http.HandlerFunc(chatHandler.GetChatHistory)))
-	mux.Handle("/api/chat/send", middlewares.RequireAuth(http.HandlerFunc(chatHandler.SendMessage)))
+	mux.Handle("/api/chat/users", requireAuth(http.HandlerFunc(chatHandler.GetUsers)))
+	mux.Handle("/api/chat/history", requireAuth(http.HandlerFunc(chatHandler.GetChatHistory)))
+	mux.Handle("/api/chat/send", requireAuth(http.HandlerFunc(chatHandler.SendMessage)))
 
 	// Websocket
 	mux.HandleFunc("/ws", wsManager.ServeWS)
