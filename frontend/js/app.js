@@ -2,7 +2,6 @@
 
 // Current logged-in user
 let currentUser = null;
-const AUTH_PATHS = new Set(['/login', '/register']);
 const APP_PATHS = new Set(['/', '/login', '/register']);
 const AUTH_STORAGE_KEYS = new Set(['user_data', 'csrf_token']);
 
@@ -42,10 +41,6 @@ function getAuthModeFromPath(pathname = window.location.pathname) {
         return 'register';
     }
     return 'login';
-}
-
-function isAuthPath(pathname = window.location.pathname) {
-    return AUTH_PATHS.has(pathname);
 }
 
 function isKnownAppPath(pathname = window.location.pathname) {
@@ -133,7 +128,6 @@ function showView(viewName, options = {}) {
     document.getElementById('view-auth').classList.add('hidden');
     document.getElementById('view-not-found').classList.add('hidden');
     document.getElementById('view-feed').classList.add('hidden');
-    document.getElementById('view-messages').classList.add('hidden');
 
     // Show requested view
     const view = document.getElementById(`view-${viewName}`);
@@ -237,7 +231,7 @@ function showNotification(message, type = 'success') {
 
 // ==================== API HELPER ====================
 
-// Make API requests with JWT token
+// Make API requests using the current session cookie.
 async function apiRequest(endpoint, method = 'GET', data = null) {
     const options = {
         method,
@@ -371,16 +365,6 @@ function setupGlobalEventListeners() {
         }
     });
 
-    // Auto-hide notifications after timeout
-    setInterval(() => {
-        const notifications = document.querySelectorAll('.notification');
-        notifications.forEach(notif => {
-            const age = Date.now() - notif.dataset.created;
-            if (age > 3000) {
-                notif.remove();
-            }
-        });
-    }, 1000);
 }
 
 // ==================== EXPORT FOR OTHER FILES ====================

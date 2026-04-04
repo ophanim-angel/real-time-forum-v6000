@@ -35,12 +35,3 @@ type Comment struct {
 	Dislikes     int    `json:"dislikes"`
 	UserReaction string `json:"user_reaction"`
 }
-
-// PostReaction represents a reaction (like, love, etc.)
-type PostReaction struct {
-	ID        string `json:"id"`
-	UderID    string `json:"user_id"`
-	PostID    string `json:"post_id"`
-	Type      string `json:"type"`
-	CreatedAt string `json:"created_at"`
-}

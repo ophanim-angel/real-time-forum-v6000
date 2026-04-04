@@ -36,7 +36,6 @@ function initWebSocket() {
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-        console.log('WebSocket connected');
         clearTimeout(reconnectTimeoutId);
         updateChatStatus('Connected');
         loadMessagesList();
@@ -72,7 +71,6 @@ function initWebSocket() {
             return;
         }
 
-        console.log(`WebSocket disconnected (${event.code}). Reconnecting in 3s...`);
         if (window.currentUser) {
             reconnectTimeoutId = setTimeout(() => {
                 if (!ws) {

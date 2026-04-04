@@ -226,11 +226,6 @@ func (h *AuthHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Helper: Sanitize string input (trim spaces)
-func sanitizeInput(s string) string {
-	return strings.TrimSpace(s)
-}
-
 func isSecureRequest(r *http.Request) bool {
 	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }
