@@ -10,6 +10,13 @@ let usersCache = [];
 let typingUsers = new Map();
 let reconnectTimeoutId = null;
 let shouldReconnect = false;
+let isTyping = false;
+let typingTimeoutLocal = null;
+let lastTypingSentAt = 0;
+
+const TYPING_PING_INTERVAL_MS = 1500;
+const TYPING_IDLE_TIMEOUT_MS = 3000;
+const REMOTE_TYPING_TIMEOUT_MS = 4500;
 
 // Initialize WebSocket
 function initWebSocket() {
@@ -53,6 +60,8 @@ function initWebSocket() {
     ws.onclose = (event) => {
         ws = null;
         hideTypingIndicator();
+        clearAllTypingUsers();
+        resetLocalTypingState();
         markAllUsersOffline();
 
         if (currentChatUserId) {
@@ -82,6 +91,7 @@ function initWebSocket() {
 function handleWebSocketEvent(event) {
     if (event.type === 'new_message') {
         const msg = event.payload;
+        clearTypingForUser(msg.sender_id);
         const myId = window.currentUser ? window.currentUser.user_id : null;
         const activeChatId = currentChatUserId;
         const isChatVisible = isMessagesPopupOpen() && activeChatId !== null;
@@ -107,7 +117,7 @@ function handleWebSocketEvent(event) {
         loadMessagesList();
     } else if (event.type === 'typing') {
         const senderId = event.payload.sender_id;
-        typingUsers.set(senderId, true);
+        typingUsers.set(senderId, Date.now());
         if (isMessagesPopupOpen()) {
             loadMessagesList();
         }
@@ -117,7 +127,7 @@ function handleWebSocketEvent(event) {
         }
     } else if (event.type === 'stop_typing') {
         const senderId = event.payload.sender_id;
-        typingUsers.delete(senderId);
+        clearTypingForUser(senderId);
         if (isMessagesPopupOpen()) {
             loadMessagesList();
         }
@@ -127,6 +137,16 @@ function handleWebSocketEvent(event) {
         }
     } else if (event.type === 'presence_update') {
         setUserOnlineStatus(event.payload.user_id, event.payload.is_online);
+        if (!event.payload.is_online) {
+            clearTypingForUser(event.payload.user_id);
+            if (isMessagesPopupOpen()) {
+                loadMessagesList();
+            }
+            if (event.payload.user_id === currentChatUserId) {
+                hideTypingIndicator();
+                updateChatStatus('Connected');
+            }
+        }
     } else if (event.type === 'session_revoked') {
         shouldReconnect = false;
         if (window.clearSession) {
@@ -236,6 +256,15 @@ function setUserOnlineStatus(userId, isOnline) {
     }
 }
 
+function clearTypingForUser(userId) {
+    if (!userId) return;
+    typingUsers.delete(userId);
+}
+
+function clearAllTypingUsers() {
+    typingUsers.clear();
+}
+
 function markAllUsersOffline() {
     usersCache = usersCache.map(user => ({
         ...user,
@@ -270,7 +299,12 @@ async function loadMessagesList() {
             userEl.dataset.userid = user.id;
 
             const initial = user.nickname.charAt(0).toUpperCase();
-            const isTypingNow = typingUsers.has(user.id);
+            const typingUpdatedAt = typingUsers.get(user.id);
+            const isTypingNow = Boolean(typingUpdatedAt) && (Date.now() - typingUpdatedAt) < REMOTE_TYPING_TIMEOUT_MS;
+
+            if (!isTypingNow) {
+                typingUsers.delete(user.id);
+            }
 
             let lastMsgText = user.last_msg || 'Start a conversation';
             if (lastMsgText.length > 25) lastMsgText = lastMsgText.substring(0, 25) + '...';
@@ -516,9 +550,6 @@ async function sendMessage() {
 }
 
 // Allow Enter key and track typing
-let isTyping = false;
-let typingTimeoutLocal = null;
-
 document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('message-input');
     if (input) {
@@ -537,19 +568,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (!isTyping) {
+            const now = Date.now();
+            if (!isTyping || (now - lastTypingSentAt) >= TYPING_PING_INTERVAL_MS) {
                 isTyping = true;
+                lastTypingSentAt = now;
                 ws.send(JSON.stringify({ type: 'typing', payload: { receiver_id: currentChatUserId } }));
             }
 
             clearTimeout(typingTimeoutLocal);
             typingTimeoutLocal = setTimeout(() => {
                 stopTyping();
-            }, 2000);
+            }, TYPING_IDLE_TIMEOUT_MS);
+        });
+
+        input.addEventListener('blur', () => {
+            stopTyping();
         });
 
         input.disabled = true; // Disable until a chat is opened
     }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopTyping();
+        }
+    });
+
+    window.addEventListener('pagehide', () => {
+        stopTyping();
+    });
 });
 
 let removeTypingTimeout = null;
@@ -573,8 +620,12 @@ function showTypingIndicator() {
     clearTimeout(removeTypingTimeout);
     removeTypingTimeout = setTimeout(() => {
         hideTypingIndicator();
+        clearTypingForUser(currentChatUserId);
         if (currentChatUserId) updateChatStatus('Connected');
-    }, 2500);
+        if (isMessagesPopupOpen()) {
+            loadMessagesList();
+        }
+    }, REMOTE_TYPING_TIMEOUT_MS);
 }
 
 function hideTypingIndicator() {
@@ -586,12 +637,19 @@ function stopTyping() {
     if (!isTyping) return;
 
     isTyping = false;
+    lastTypingSentAt = 0;
     if (currentChatUserId && ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
             type: 'stop_typing',
             payload: { receiver_id: currentChatUserId }
         }));
     }
+}
+
+function resetLocalTypingState() {
+    clearTimeout(typingTimeoutLocal);
+    isTyping = false;
+    lastTypingSentAt = 0;
 }
 
 // Scroll to bottom of chat
@@ -618,6 +676,9 @@ window.initWebSocket = initWebSocket;
 window.closeWebSocket = () => {
     shouldReconnect = false;
     clearTimeout(reconnectTimeoutId);
+    resetLocalTypingState();
+    clearAllTypingUsers();
+    hideTypingIndicator();
     if (ws) {
         ws.close(1000, 'client closing');
         ws = null;
