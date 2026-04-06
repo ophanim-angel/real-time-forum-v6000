@@ -11,6 +11,7 @@ import (
 var (
 	emailRegex    = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 	nicknameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]{3,20}$`)
+	nameRegex     = regexp.MustCompile(`^[a-zA-ZÀ-ÿ][a-zA-ZÀ-ÿ' \-]{0,48}[a-zA-ZÀ-ÿ]$`)
 )
 
 // ValidateEmail checks if email format is valid
@@ -52,10 +53,10 @@ func ValidateNickname(nickname string) bool {
 	return nicknameRegex.MatchString(nickname)
 }
 
-// ValidateName checks first/last name (basic)
+// ValidateName checks first/last name
 func ValidateName(name string) bool {
 	name = strings.TrimSpace(name)
-	return len(name) >= 2 && len(name) <= 50 && !strings.ContainsAny(name, "<>\"'&")
+	return nameRegex.MatchString(name)
 }
 
 // ValidateAge checks age is reasonable
@@ -66,7 +67,7 @@ func ValidateAge(age int) bool {
 // ValidateGender checks gender is one of allowed values
 func ValidateGender(gender string) bool {
 	gender = strings.ToLower(strings.TrimSpace(gender))
-	return gender == "male" || gender == "female" || gender == "prefer-not-to-say"
+	return gender == "male" || gender == "female"
 }
 
 // ValidatePostTitle checks post title
