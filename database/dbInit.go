@@ -92,7 +92,6 @@ func CreateTables(db *sql.DB) error {
 		csrf_token TEXT NOT NULL,
 		expires_at DATETIME NOT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
 
