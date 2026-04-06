@@ -28,7 +28,6 @@ func CreateTables(db *sql.DB) error {
 		title TEXT NOT NULL,
 		content TEXT NOT NULL,
 		category TEXT DEFAULT 'general',
-		views INTEGER DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
@@ -64,11 +63,11 @@ func CreateTables(db *sql.DB) error {
 		id TEXT PRIMARY KEY,
 		user_id TEXT NOT NULL,
 		post_id TEXT NOT NULL,
-		type TEXT DEFAULT 'like', -- like, love, etc.
+		type TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
 		FOREIGN KEY(post_id) REFERENCES posts(id) ON DELETE CASCADE,
-		UNIQUE(user_id, post_id) -- Prevent double like from same user
+		UNIQUE(user_id, post_id)
 	);`
 
 	// 6. Comment Reactions Table
@@ -77,11 +76,11 @@ func CreateTables(db *sql.DB) error {
 		id TEXT PRIMARY KEY,
 		user_id TEXT NOT NULL,
 		comment_id TEXT NOT NULL,
-		type TEXT DEFAULT 'like',
+		type TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
 		FOREIGN KEY(comment_id) REFERENCES comments(id) ON DELETE CASCADE,
-		UNIQUE(user_id, comment_id) -- Prevent double like from same user
+		UNIQUE(user_id, comment_id)
 	);`
 
 	// 7. Sessions Table

@@ -8,7 +8,6 @@ type Post struct {
 	Title        string `json:"title"`
 	Content      string `json:"content"`
 	Category     string `json:"category"`
-	Views        string `json:"views"`
 	CreatedAt    string `json:"created_at"`
 	Comments     int    `json:"comments"`
 	Likes        int    `json:"likes"`

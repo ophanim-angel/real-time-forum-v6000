@@ -36,7 +36,7 @@ func (h *PostHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 	// Fetch posts with user nickname and reaction data
 	query := `
 		SELECT 
-			p.id, p.user_id, u.nickname, p.title, p.content, p.category, p.views, p.created_at,
+			p.id, p.user_id, u.nickname, p.title, p.content, p.category, p.created_at,
 			(SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments,
 			(SELECT COUNT(*) FROM post_reactions WHERE post_id = p.id AND type = 'like') AS likes,
 			(SELECT COUNT(*) FROM post_reactions WHERE post_id = p.id AND type = 'dislike') AS dislikes,
@@ -91,7 +91,7 @@ func (h *PostHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
 		var post models.Post
 		err := rows.Scan(
 			&post.ID, &post.UserID, &post.Nickname, &post.Title,
-			&post.Content, &post.Category, &post.Views, &post.CreatedAt, &post.Comments,
+			&post.Content, &post.Category, &post.CreatedAt, &post.Comments,
 			&post.Likes, &post.Dislikes, &post.UserReaction,
 		)
 		if err != nil {
@@ -223,7 +223,7 @@ func (h *PostHandler) ReactToPost(w http.ResponseWriter, r *http.Request) {
 	// Decode input
 	var input struct {
 		PostID string `json:"post_id"`
-		Type   string `json:"type"` // like, love, etc.
+		Type   string `json:"type"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
