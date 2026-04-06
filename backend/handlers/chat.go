@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	middleware "toolKit/backend/middlewares"
+	"toolKit/backend/middlewares"
 	"toolKit/backend/utils"
 	"toolKit/backend/ws"
 )
@@ -26,7 +26,7 @@ func (h *ChatHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := middleware.GetUserIDFromContext(r)
+	userID := middlewares.GetUserIDFromContext(r)
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -92,7 +92,7 @@ func (h *ChatHandler) GetChatHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := middleware.GetUserIDFromContext(r)
+	userID := middlewares.GetUserIDFromContext(r)
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -156,7 +156,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := middleware.GetUserIDFromContext(r)
+	userID := middlewares.GetUserIDFromContext(r)
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return

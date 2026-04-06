@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	middleware "toolKit/backend/middlewares"
+	"toolKit/backend/middlewares"
 	"toolKit/backend/models"
 	"toolKit/backend/utils"
 )
@@ -22,7 +22,7 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := middleware.GetUserIDFromContext(r)
+	userID := middlewares.GetUserIDFromContext(r)
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -86,7 +86,7 @@ func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user_id from context
-	userID := middleware.GetUserIDFromContext(r)
+	userID := middlewares.GetUserIDFromContext(r)
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -136,7 +136,7 @@ func (h *CommentHandler) ReactToComment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	userID := middleware.GetUserIDFromContext(r)
+	userID := middlewares.GetUserIDFromContext(r)
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return

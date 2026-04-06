@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	middleware "toolKit/backend/middlewares"
+	 "toolKit/backend/middlewares"
 	"toolKit/backend/models"
 	"toolKit/backend/utils"
 	"toolKit/backend/ws"
@@ -185,7 +185,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := middleware.GetSessionFromContext(r)
+	session := middlewares.GetSessionFromContext(r)
 	if session == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
