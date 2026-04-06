@@ -10,12 +10,3 @@ func GenerateUUID() string {
 	}
 	return id.String()
 }
-
-// IsValidUUID checks if a string is a valid UUID format
-func IsValidUUID(s string) bool {
-	if s == "" {
-		return false
-	}
-	_, err := uuid.FromString(s)
-	return err == nil
-}
