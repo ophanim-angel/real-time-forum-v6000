@@ -126,8 +126,6 @@ func GetSessionFromRequest(ctx context.Context, db *sql.DB, r *http.Request) (*S
 		return nil, errors.New("session expired")
 	}
 
-	_, _ = db.ExecContext(ctx, `UPDATE sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?`, session.ID)
-
 	return &session, nil
 }
 
