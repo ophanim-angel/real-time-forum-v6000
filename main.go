@@ -17,7 +17,7 @@ import (
 
 var db *sql.DB
 
-func serveSPA(w http.ResponseWriter, r *http.Request, statusCode int) {
+func serveSPA(w http.ResponseWriter, statusCode int) {
 	indexPath := filepath.Join("frontend", "index.html")
 	content, err := os.ReadFile(indexPath)
 	if err != nil {
@@ -51,9 +51,9 @@ func serveFrontendApp(w http.ResponseWriter, r *http.Request) {
 
 	switch r.URL.Path {
 	case "/", "/login", "/register":
-		serveSPA(w, r, http.StatusOK)
+		serveSPA(w, http.StatusOK)
 	default:
-		serveSPA(w, r, http.StatusNotFound)
+		serveSPA(w, http.StatusNotFound)
 	}
 }
 
@@ -122,14 +122,5 @@ func main() {
 
 	// 5. Start Server
 	log.Println("Server starting on http://localhost:8080")
-	// log.Println("Public Endpoints:")
-	// log.Println("POST /api/register")
-	// log.Println("POST /api/login")
-	// log.Println("Protected Endpoints:")
-	// log.Println("POST /api/logout")
-	// log.Println("GET  /api/posts")
-	// log.Println("POST /api/posts/create")
-	// log.Println("DELETE /api/posts/delete")
-	// log.Println("POST /api/posts/react")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
