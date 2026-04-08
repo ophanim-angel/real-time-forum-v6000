@@ -297,7 +297,7 @@ function escapeHTML(str) {
     return div.innerHTML;
 }
 
-// Format date to "time ago" (e.g., "5m ago", "2h ago")
+// Format date to "time ago" (e.g., "5m ago", "dd/mm/yyyy, hh:mm")
 function getTimeAgo(dateString) {
     if (!dateString) return 'Unknown';
 
@@ -305,11 +305,19 @@ function getTimeAgo(dateString) {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
 
+    if (seconds >= 300) {
+        return date.toLocaleString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+    }
+
     if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-    return `${Math.floor(seconds / 604800)}w ago`;
+    return `${Math.floor(seconds / 60)}m ago`;
 }
 
 // Format number with K/M suffix (e.g., 1200 → 1.2K)
