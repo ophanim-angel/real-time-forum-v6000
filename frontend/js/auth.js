@@ -173,7 +173,7 @@ async function logout() {
     showView('auth');
 }
 
-// ✅ Password Toggle Logic (Hold to reveal)
+// Password Toggle Logic (Hold to reveal)
 document.addEventListener('DOMContentLoaded', () => {
     const toggles = document.querySelectorAll('.password-toggle');
 
