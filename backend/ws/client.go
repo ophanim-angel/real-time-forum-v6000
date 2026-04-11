@@ -158,9 +158,15 @@ func (c *Client) handleSendMessage(payload json.RawMessage) {
 		INSERT INTO private_messages (id, sender_id, receiver_id, content, created_at)
 		VALUES (?, ?, ?, ?, ?)
 	`
-	_, err := c.Manager.DB.Exec(query, msgID, c.UserID, data.ReceiverID, data.Content, timestamp)
+	result, err := c.Manager.DB.Exec(query, msgID, c.UserID, data.ReceiverID, data.Content, timestamp)
 	if err != nil {
 		log.Println("Error saving message context:", err)
+		return
+	}
+
+	requestID, err := result.LastInsertId()
+	if err != nil {
+		log.Println("Error getting message request id:", err)
 		return
 	}
 
@@ -168,6 +174,7 @@ func (c *Client) handleSendMessage(payload json.RawMessage) {
 	outMsg := map[string]interface{}{
 		"type": "new_message",
 		"payload": map[string]interface{}{
+			"request_id":  requestID,
 			"id":          msgID,
 			"sender_id":   c.UserID,
 			"receiver_id": data.ReceiverID,

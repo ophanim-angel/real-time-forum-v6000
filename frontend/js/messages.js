@@ -3,7 +3,7 @@
 let ws = null;
 let currentChatUserId = null;
 let currentChatUserNickname = '';
-let chatOffset = 0;
+let oldestLoadedRequestId = null;
 let isLoadingMessages = false;
 let hasMoreMessages = true;
 let usersCache = [];
@@ -13,6 +13,7 @@ let shouldReconnect = false;
 let isTyping = false;
 let typingTimeoutLocal = null;
 let lastTypingSentAt = 0;
+let currentChatMessages = new Map();
 
 const TYPING_PING_INTERVAL_MS = 1500;
 const TYPING_IDLE_TIMEOUT_MS = 3000;
@@ -101,8 +102,7 @@ function handleWebSocketEvent(event) {
         );
 
         if (isRelevant) {
-            appendMessageToChat(msg, false);
-            scrollToBottom();
+            appendMessageToChat(msg, true);
             updateChatStatus('Connected');
         } else {
             if (msg.sender_id !== myId) {
@@ -343,8 +343,9 @@ async function openChat(userId, nickname) {
     stopTyping();
     currentChatUserId = userId;
     currentChatUserNickname = nickname;
-    chatOffset = 0;
+    oldestLoadedRequestId = null;
     hasMoreMessages = true;
+    currentChatMessages = new Map();
     typingUsers.delete(userId);
 
     // Show input area now that a user is selected
@@ -400,7 +401,90 @@ function handleScroll() {
     }
 }
 
-// Load messages with offset (pagination of 10)
+function getMessageRequestId(msg) {
+    const parsed = Number(msg?.request_id);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getSortedCurrentChatMessages() {
+    return Array.from(currentChatMessages.values()).sort((a, b) => {
+        const requestDiff = getMessageRequestId(a) - getMessageRequestId(b);
+        if (requestDiff !== 0) return requestDiff;
+
+        const timeDiff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        if (timeDiff !== 0) return timeDiff;
+
+        return String(a.id).localeCompare(String(b.id));
+    });
+}
+
+function storeChatMessage(msg) {
+    if (!msg || !msg.id) return;
+    currentChatMessages.set(msg.id, msg);
+}
+
+function updateOldestLoadedRequestId() {
+    const sortedMessages = getSortedCurrentChatMessages();
+    oldestLoadedRequestId = sortedMessages.length > 0 ? getMessageRequestId(sortedMessages[0]) : null;
+}
+
+function renderCurrentChat() {
+    const body = document.getElementById('message-body');
+    if (!body) return;
+
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+
+    body.innerHTML = '';
+
+    const myId = window.currentUser ? window.currentUser.user_id : null;
+    const messages = getSortedCurrentChatMessages();
+
+    messages.forEach(msg => {
+        const isMine = msg.sender_id === myId;
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.flexDirection = 'column';
+        wrapper.style.maxWidth = '80%';
+        wrapper.style.alignItems = isMine ? 'flex-end' : 'flex-start';
+        wrapper.style.alignSelf = isMine ? 'flex-end' : 'flex-start';
+        wrapper.dataset.messageId = msg.id;
+        wrapper.dataset.requestId = String(getMessageRequestId(msg));
+
+        const timeInfo = document.createElement('span');
+        timeInfo.style.fontSize = '10px';
+        timeInfo.style.fontWeight = '900';
+        timeInfo.style.color = '#999';
+        timeInfo.style.textTransform = 'uppercase';
+        timeInfo.style.marginBottom = '0.25rem';
+
+        const date = new Date(msg.created_at);
+        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        timeInfo.textContent = `${isMine ? 'YOU' : escapeHTML(currentChatUserNickname)} • ${timeStr}`;
+
+        const bubble = document.createElement('div');
+        bubble.style.padding = '0.75rem 1rem';
+        bubble.style.border = '2px solid var(--primary)';
+        bubble.style.fontSize = '14px';
+        bubble.style.fontWeight = '500';
+        bubble.style.boxShadow = '2px 2px 0px 0px rgba(0,0,0,1)';
+        bubble.style.wordBreak = 'break-word';
+        bubble.style.background = isMine ? 'var(--chat-sent)' : 'var(--chat-received)';
+        bubble.textContent = msg.content;
+
+        wrapper.appendChild(timeInfo);
+        wrapper.appendChild(bubble);
+        body.appendChild(wrapper);
+    });
+
+    if (currentChatUserId && typingUsers.has(currentChatUserId)) {
+        showTypingIndicator();
+    }
+}
+
+// Load messages 10 at a time with a stable request-id cursor
 async function loadMessages() {
     if (!currentChatUserId || isLoadingMessages || !hasMoreMessages) return;
 
@@ -408,11 +492,14 @@ async function loadMessages() {
     const body = document.getElementById('message-body');
 
     try {
-        const messages = await apiRequest(`/api/chat/history?target_id=${currentChatUserId}&offset=${chatOffset}`, 'GET');
+        const url = oldestLoadedRequestId === null
+            ? `/api/chat/history?target_id=${currentChatUserId}`
+            : `/api/chat/history?target_id=${currentChatUserId}&before=${oldestLoadedRequestId}`;
+        const messages = await apiRequest(url, 'GET');
 
         if (!messages || messages.length === 0) {
             hasMoreMessages = false;
-            if (chatOffset === 0) {
+            if (currentChatMessages.size === 0) {
                 // Empty chat
                 body.innerHTML = `
                     <div class="text-center" style="padding: 3rem; color: var(--text-muted);">
@@ -433,19 +520,10 @@ async function loadMessages() {
             return;
         }
 
-        // Remove empty placeholder if any
-        if (chatOffset === 0) body.innerHTML = '';
+        messages.forEach(storeChatMessage);
+        updateOldestLoadedRequestId();
+        renderCurrentChat();
 
-        // Messages come sorted newest first from API, so we need to reverse them to display top-to-bottom properly
-        // BUT wait, when prepending history, older messages go at the TOP.
-        // Let's iterate messages. API returns [msg_1 (newest), msg_2, msg_3 (oldest)]
-        // We want to prepend msg_1 at the top of current list. Then prepend msg_2 ABOVE msg_1, etc.
-        // So we just iterate normally and prepend each.
-        messages.forEach(msg => {
-            appendMessageToChat(msg, true); // true = prepend
-        });
-
-        chatOffset += messages.length;
         if (messages.length < 10) {
             hasMoreMessages = false; // API returned less than requested limit (10)
         }
@@ -457,54 +535,13 @@ async function loadMessages() {
     }
 }
 
-// Add message to DOM
-function appendMessageToChat(msg, prepend = false) {
-    const body = document.getElementById('message-body');
-    const myId = window.currentUser ? window.currentUser.user_id : null;
-    const isMine = msg.sender_id === myId;
+function appendMessageToChat(msg, shouldScroll = false) {
+    storeChatMessage(msg);
+    updateOldestLoadedRequestId();
+    renderCurrentChat();
 
-    // Remove typing indicator if we are appending a new message at the bottom
-    const indicator = document.getElementById('typing-indicator');
-    if (indicator && !prepend) {
-        indicator.remove();
-    }
-
-    const wrapper = document.createElement('div');
-    wrapper.style.display = 'flex';
-    wrapper.style.flexDirection = 'column';
-    wrapper.style.maxWidth = '80%';
-    wrapper.style.alignItems = isMine ? 'flex-end' : 'flex-start';
-    wrapper.style.alignSelf = isMine ? 'flex-end' : 'flex-start';
-
-    const timeInfo = document.createElement('span');
-    timeInfo.style.fontSize = '10px';
-    timeInfo.style.fontWeight = '900';
-    timeInfo.style.color = '#999';
-    timeInfo.style.textTransform = 'uppercase';
-    timeInfo.style.marginBottom = '0.25rem';
-
-    const date = new Date(msg.created_at);
-    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    timeInfo.textContent = `${isMine ? 'YOU' : escapeHTML(currentChatUserNickname)} • ${timeStr}`;
-
-    const bubble = document.createElement('div');
-    bubble.style.padding = '0.75rem 1rem';
-    bubble.style.border = '2px solid var(--primary)';
-    bubble.style.fontSize = '14px';
-    bubble.style.fontWeight = '500';
-    bubble.style.boxShadow = '2px 2px 0px 0px rgba(0,0,0,1)';
-    bubble.style.wordBreak = 'break-word';
-    bubble.style.background = isMine ? 'var(--chat-sent)' : 'var(--chat-received)';
-
-    bubble.textContent = msg.content;
-
-    wrapper.appendChild(timeInfo);
-    wrapper.appendChild(bubble);
-
-    if (prepend) {
-        body.prepend(wrapper);
-    } else {
-        body.appendChild(wrapper);
+    if (shouldScroll) {
+        scrollToBottom();
     }
 }
 
@@ -536,8 +573,7 @@ async function sendMessage() {
 
         const msg = await apiRequest('/api/chat/send', 'POST', payload);
         if (msg && msg.payload) {
-            appendMessageToChat(msg.payload, false);
-            scrollToBottom();
+            appendMessageToChat(msg.payload, true);
             loadMessagesList();
         }
     } catch (error) {

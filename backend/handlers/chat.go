@@ -42,7 +42,7 @@ func (h *ChatHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
                (SELECT content FROM private_messages 
 				WHERE (sender_id = u.id AND receiver_id = ?) 
 				   OR (sender_id = ? AND receiver_id = u.id)
-                ORDER BY created_at DESC LIMIT 1) as last_msg
+                ORDER BY rowid DESC LIMIT 1) as last_msg
 		FROM users u
 		LEFT JOIN private_messages pm 
 			ON (pm.sender_id = u.id AND pm.receiver_id = ?) 
@@ -85,7 +85,7 @@ func (h *ChatHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// GetChatHistory returns messages between current user and a target, with offset for scrolling (10 at a time)
+// GetChatHistory returns messages between current user and a target, 10 at a time.
 func (h *ChatHandler) GetChatHistory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -104,22 +104,25 @@ func (h *ChatHandler) GetChatHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	offsetStr := r.URL.Query().Get("offset")
-	offset, err := strconv.Atoi(offsetStr)
-	if err != nil || offset < 0 {
-		offset = 0
+	beforeStr := r.URL.Query().Get("before")
+	beforeRowID, err := strconv.ParseInt(beforeStr, 10, 64)
+	if err != nil || beforeRowID < 0 {
+		beforeRowID = 0
 	}
-	limit := 10 // Requirement: load 10 past messages per request
+	limit := 10
 
 	query := `
-		SELECT id, sender_id, receiver_id, content, created_at
+		SELECT rowid, id, sender_id, receiver_id, content, created_at
 		FROM private_messages
-		WHERE (sender_id = ? AND receiver_id = ?) 
-		   OR (sender_id = ? AND receiver_id = ?)
-		ORDER BY created_at DESC
-		LIMIT ? OFFSET ?
+		WHERE (
+			(sender_id = ? AND receiver_id = ?) 
+			OR (sender_id = ? AND receiver_id = ?)
+		)
+		AND (? = 0 OR rowid < ?)
+		ORDER BY rowid DESC
+		LIMIT ?
 	`
-	rows, err := h.DB.Query(query, userID, targetUserID, targetUserID, userID, limit, offset)
+	rows, err := h.DB.Query(query, userID, targetUserID, targetUserID, userID, beforeRowID, beforeRowID, limit)
 	if err != nil {
 		log.Println("Error fetching chat history:", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -127,16 +130,16 @@ func (h *ChatHandler) GetChatHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	// Parse them. Note: we ordered DESC (newest first) for pagination.
-	// The frontend will likely need to reverse them to display oldest -> newest top-down.
 	var messages []map[string]interface{}
 	for rows.Next() {
+		var rowID int64
 		var id, senderID, receiverID, content, createdAt string
-		if err := rows.Scan(&id, &senderID, &receiverID, &content, &createdAt); err != nil {
+		if err := rows.Scan(&rowID, &id, &senderID, &receiverID, &content, &createdAt); err != nil {
 			log.Println("Error scanning message:", err)
 			continue
 		}
 		messages = append(messages, map[string]interface{}{
+			"request_id":  rowID,
 			"id":          id,
 			"sender_id":   senderID,
 			"receiver_id": receiverID,
@@ -180,9 +183,16 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO private_messages (id, sender_id, receiver_id, content, created_at)
 		VALUES (?, ?, ?, ?, ?)
 	`
-	_, err := h.DB.Exec(query, msgID, userID, input.ReceiverID, input.Content, timestamp)
+	result, err := h.DB.Exec(query, msgID, userID, input.ReceiverID, input.Content, timestamp)
 	if err != nil {
 		log.Println("Error saving message:", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	requestID, err := result.LastInsertId()
+	if err != nil {
+		log.Println("Error getting message request id:", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -191,6 +201,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	outMsgBytes, _ := json.Marshal(map[string]interface{}{
 		"type": "new_message",
 		"payload": map[string]interface{}{
+			"request_id":  requestID,
 			"id":          msgID,
 			"sender_id":   userID,
 			"receiver_id": input.ReceiverID,
