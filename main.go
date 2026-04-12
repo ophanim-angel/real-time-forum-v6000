@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	"toolKit/backend/handlers"
 	"toolKit/backend/middlewares"
 	"toolKit/backend/ws"
@@ -85,6 +86,7 @@ func main() {
 	commentHandler := &handlers.CommentHandler{DB: db}
 	chatHandler := &handlers.ChatHandler{DB: db, Manager: wsManager}
 	requireAuth := middlewares.RequireAuth(db)
+	rateLimiter := middlewares.NewRateLimiter(20, 10*time.Second)
 
 	// 4. Routes Configuration
 	mux := http.NewServeMux()
@@ -95,24 +97,24 @@ func main() {
 	mux.HandleFunc("/api/session", authHandler.GetSession)
 
 	// --- Protected Routes (Session Cookie) ---
-	mux.Handle("/api/logout", requireAuth(http.HandlerFunc(authHandler.Logout)))
+	mux.Handle("/api/logout", requireAuth(rateLimiter.Middleware(http.HandlerFunc(authHandler.Logout))))
 
 	// Posts endpoints
-	mux.Handle("/api/posts", requireAuth(http.HandlerFunc(postHandler.GetPosts)))
-	mux.Handle("/api/posts/create", requireAuth(http.HandlerFunc(postHandler.CreatePost)))
-	mux.Handle("/api/posts/delete", requireAuth(http.HandlerFunc(postHandler.DeletePost)))
-	mux.Handle("/api/posts/react", requireAuth(http.HandlerFunc(postHandler.ReactToPost)))
-	mux.Handle("/api/posts/reactions", requireAuth(http.HandlerFunc(postHandler.GetPostReactions)))
+	mux.Handle("/api/posts", requireAuth(rateLimiter.Middleware(http.HandlerFunc(postHandler.GetPosts))))
+	mux.Handle("/api/posts/create", requireAuth(rateLimiter.Middleware(http.HandlerFunc(postHandler.CreatePost))))
+	mux.Handle("/api/posts/delete", requireAuth(rateLimiter.Middleware(http.HandlerFunc(postHandler.DeletePost))))
+	mux.Handle("/api/posts/react", requireAuth(rateLimiter.Middleware(http.HandlerFunc(postHandler.ReactToPost))))
+	mux.Handle("/api/posts/reactions", requireAuth(rateLimiter.Middleware(http.HandlerFunc(postHandler.GetPostReactions))))
 
 	// Comments endpoints
-	mux.Handle("/api/comments", requireAuth(http.HandlerFunc(commentHandler.GetComments)))
-	mux.Handle("/api/comments/create", requireAuth(http.HandlerFunc(commentHandler.CreateComment)))
-	mux.Handle("/api/comments/react", requireAuth(http.HandlerFunc(commentHandler.ReactToComment)))
+	mux.Handle("/api/comments", requireAuth(rateLimiter.Middleware(http.HandlerFunc(commentHandler.GetComments))))
+	mux.Handle("/api/comments/create", requireAuth(rateLimiter.Middleware(http.HandlerFunc(commentHandler.CreateComment))))
+	mux.Handle("/api/comments/react", requireAuth(rateLimiter.Middleware(http.HandlerFunc(commentHandler.ReactToComment))))
 
 	// Chat endpoints
-	mux.Handle("/api/chat/users", requireAuth(http.HandlerFunc(chatHandler.GetUsers)))
-	mux.Handle("/api/chat/history", requireAuth(http.HandlerFunc(chatHandler.GetChatHistory)))
-	mux.Handle("/api/chat/send", requireAuth(http.HandlerFunc(chatHandler.SendMessage)))
+	mux.Handle("/api/chat/users", requireAuth(rateLimiter.Middleware(http.HandlerFunc(chatHandler.GetUsers))))
+	mux.Handle("/api/chat/history", requireAuth(rateLimiter.Middleware(http.HandlerFunc(chatHandler.GetChatHistory))))
+	mux.Handle("/api/chat/send", requireAuth(rateLimiter.Middleware(http.HandlerFunc(chatHandler.SendMessage))))
 
 	// Websocket
 	mux.HandleFunc("/ws", wsManager.ServeWS)
