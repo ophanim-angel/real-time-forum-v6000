@@ -94,6 +94,28 @@ func ValidatePostContent(content string) error {
 	return nil
 }
 
+func ValidatePostCategory(category string) (string, error) {
+	category = strings.TrimSpace(category)
+	if category == "" {
+		return "General", nil
+	}
+
+	switch strings.ToLower(category) {
+	case "general":
+		return "General", nil
+	case "science":
+		return "Science", nil
+	case "tech":
+		return "Tech", nil
+	case "art":
+		return "Art", nil
+	case "gaming":
+		return "Gaming", nil
+	default:
+		return "", fmt.Errorf("category must be one of the topics bellow")
+	}
+}
+
 // ValidateMessageContent checks private message content
 func ValidateMessageContent(content string) error {
 	content = strings.TrimSpace(content)
