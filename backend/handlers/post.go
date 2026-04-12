@@ -135,21 +135,21 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	category, err := utils.ValidatePostCategory(input.Category)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	// Generate UUID
 	postID := utils.GenerateUUID()
-
-	// Set default category if empty
-	if input.Category == "" {
-		input.Category = "general"
-	}
 
 	// Insert post
 	query := `
 		INSERT INTO posts (id, user_id, title, content, category)
 		VALUES (?, ?, ?, ?, ?)
 	`
-	_, err := h.DB.Exec(query, postID, userID, input.Title, input.Content, input.Category)
+	_, err = h.DB.Exec(query, postID, userID, input.Title, input.Content, category)
 	if err != nil {
 		log.Println("Error creating post:", err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)

@@ -100,20 +100,44 @@ func ValidatePostCategory(category string) (string, error) {
 		return "General", nil
 	}
 
-	switch strings.ToLower(category) {
-	case "general":
-		return "General", nil
-	case "science":
-		return "Science", nil
-	case "tech":
-		return "Tech", nil
-	case "art":
-		return "Art", nil
-	case "gaming":
-		return "Gaming", nil
-	default:
-		return "", fmt.Errorf("category must be one of the topics bellow")
+	parts := strings.Split(category, ",")
+	normalized := make([]string, 0, len(parts))
+	seen := make(map[string]bool, len(parts))
+
+	for _, part := range parts {
+		topic := strings.TrimSpace(part)
+		if topic == "" {
+			continue
+		}
+
+		var canonical string
+		switch strings.ToLower(topic) {
+		case "general":
+			canonical = "General"
+		case "science":
+			canonical = "Science"
+		case "tech":
+			canonical = "Tech"
+		case "art":
+			canonical = "Art"
+		case "gaming":
+			canonical = "Gaming"
+		default:
+			return "", fmt.Errorf("category must only contain: General, Science, Tech, Art, Gaming")
+		}
+
+		if seen[canonical] {
+			continue
+		}
+		seen[canonical] = true
+		normalized = append(normalized, canonical)
 	}
+
+	if len(normalized) == 0 {
+		return "General", nil
+	}
+
+	return strings.Join(normalized, ", "), nil
 }
 
 // ValidateMessageContent checks private message content
