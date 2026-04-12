@@ -6,7 +6,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	 "toolKit/backend/middlewares"
+
+	"toolKit/backend/middlewares"
 	"toolKit/backend/models"
 	"toolKit/backend/utils"
 	"toolKit/backend/ws"
@@ -205,6 +206,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetSession retrieves the current user's session information, including user ID, nickname, and CSRF token.
 func (h *AuthHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -226,6 +228,7 @@ func (h *AuthHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// isSecureRequest checks if the HTTP request is made over a secure connection (HTTPS).
 func isSecureRequest(r *http.Request) bool {
 	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }

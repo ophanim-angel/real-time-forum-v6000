@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"time"
+
 	"toolKit/backend/utils"
 
 	"github.com/gorilla/websocket"
@@ -48,7 +49,7 @@ type TypingPayload struct {
 	ReceiverID string `json:"receiver_id"`
 }
 
-// readPump pumps messages from the websocket connection to the hub.
+// readPump reads messages from the websocket connection and handles events.
 func (c *Client) readPump() {
 	defer func() {
 		c.Manager.removeClient(c)
@@ -94,7 +95,7 @@ func (c *Client) readPump() {
 	}
 }
 
-// writePump pumps messages from the hub to the websocket connection.
+// writePump writes messages to the websocket connection and sends periodic pings.
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -137,6 +138,7 @@ func (c *Client) writePump() {
 	}
 }
 
+// handleSendMessage processes a send message event, saves it to the database, and broadcasts it.
 func (c *Client) handleSendMessage(payload json.RawMessage) {
 	var data SendMessagePayload
 	if err := json.Unmarshal(payload, &data); err != nil {
@@ -189,6 +191,7 @@ func (c *Client) handleSendMessage(payload json.RawMessage) {
 	c.Manager.SendToUser(data.ReceiverID, outMsgBytes)
 }
 
+// handleTyping broadcasts a typing indicator to the specified receiver.
 func (c *Client) handleTyping(payload json.RawMessage) {
 	var data TypingPayload
 	if err := json.Unmarshal(payload, &data); err != nil {
@@ -204,6 +207,7 @@ func (c *Client) handleTyping(payload json.RawMessage) {
 	c.Manager.SendToUser(data.ReceiverID, outMsgBytes)
 }
 
+// handleStopTyping broadcasts a stop typing indicator to the specified receiver.
 func (c *Client) handleStopTyping(payload json.RawMessage) {
 	var data TypingPayload
 	if err := json.Unmarshal(payload, &data); err != nil {

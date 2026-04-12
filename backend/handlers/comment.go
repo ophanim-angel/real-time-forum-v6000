@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
 	"toolKit/backend/middlewares"
 	"toolKit/backend/models"
 	"toolKit/backend/utils"
@@ -34,6 +35,13 @@ func (h *CommentHandler) GetComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// getCommentsQuery retrieves comments for a specific post along with associated data.
+	// The query performs the following operations:
+	// 1. Selects comment details: id, post_id, user_id, user's nickname, content, and created_at timestamp.
+	// 2. Calculates the number of likes and dislikes for each comment by counting reactions of type 'like' and 'dislike'.
+	// 3. Determines the current user's reaction to each comment (if any), defaulting to an empty string if none.
+	// 4. Joins the comments table with the users table to include the commenter's nickname.
+	// 5. Filters comments by the specified post_id and orders them by creation time in ascending order.
 	query := `
 		SELECT 
 			c.id, c.post_id, c.user_id, u.nickname, c.content, c.created_at,

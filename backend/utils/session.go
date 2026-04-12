@@ -24,6 +24,7 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
+// GenerateSessionToken generates a random base64-encoded session token.
 func GenerateSessionToken() (string, error) {
 	randomBytes := make([]byte, 32)
 	if _, err := rand.Read(randomBytes); err != nil {
@@ -33,11 +34,13 @@ func GenerateSessionToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(randomBytes), nil
 }
 
+// HashSessionToken hashes the session token using SHA-256 and encodes it in base64.
 func HashSessionToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return base64.RawURLEncoding.EncodeToString(hash[:])
 }
 
+// CreateSession creates a new session in the database and returns the session object and token.
 func CreateSession(ctx context.Context, db *sql.DB, userID, nickname string) (*Session, string, error) {
 	sessionToken, err := GenerateSessionToken()
 	if err != nil {
@@ -69,11 +72,13 @@ func CreateSession(ctx context.Context, db *sql.DB, userID, nickname string) (*S
 	return session, sessionToken, nil
 }
 
+// DeleteSessionsByUserID deletes all sessions associated with a given user ID.
 func DeleteSessionsByUserID(ctx context.Context, db *sql.DB, userID string) error {
 	_, err := db.ExecContext(ctx, `DELETE FROM sessions WHERE user_id = ?`, userID)
 	return err
 }
 
+// DeleteSessionByID deletes a session by its ID if the ID is not empty.
 func DeleteSessionByID(ctx context.Context, db *sql.DB, sessionID string) error {
 	if sessionID == "" {
 		return nil
@@ -83,6 +88,7 @@ func DeleteSessionByID(ctx context.Context, db *sql.DB, sessionID string) error 
 	return err
 }
 
+// GetSessionFromRequest retrieves and validates the session from the request cookie.
 func GetSessionFromRequest(ctx context.Context, db *sql.DB, r *http.Request) (*Session, error) {
 	cookie, err := r.Cookie(SessionCookieName)
 	if err != nil {
@@ -129,6 +135,7 @@ func GetSessionFromRequest(ctx context.Context, db *sql.DB, r *http.Request) (*S
 	return &session, nil
 }
 
+// SetSessionCookie sets the session cookie in the HTTP response.
 func SetSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time, secure bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
@@ -142,6 +149,7 @@ func SetSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time, 
 	})
 }
 
+// ClearSessionCookie clears the session cookie by setting it to expire immediately.
 func ClearSessionCookie(w http.ResponseWriter, secure bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,

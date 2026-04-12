@@ -79,6 +79,7 @@ func (m *Manager) ServeWS(w http.ResponseWriter, r *http.Request) {
 	go client.writePump()
 }
 
+// addClient registers a new client and broadcasts presence update
 func (m *Manager) addClient(c *Client) {
 	m.Lock()
 	m.clients[c] = true
@@ -89,6 +90,7 @@ func (m *Manager) addClient(c *Client) {
 	m.broadcastPresence(c.UserID, true)
 }
 
+// removeClient unregisters a client and broadcasts presence update
 func (m *Manager) removeClient(c *Client) {
 	m.Lock()
 
@@ -106,7 +108,7 @@ func (m *Manager) removeClient(c *Client) {
 	m.Unlock()
 }
 
-// Broadcasts an event to all connected clients
+// Broadcast sends a message to all connected clients
 func (m *Manager) Broadcast(message []byte) {
 	m.RLock()
 	defer m.RUnlock()
@@ -121,7 +123,7 @@ func (m *Manager) Broadcast(message []byte) {
 	}
 }
 
-// Broadcasts an event to a SPECIFIC user
+// SendToUser sends a message to all clients of a specific user
 func (m *Manager) SendToUser(userID string, message []byte) {
 	m.RLock()
 	defer m.RUnlock()
@@ -138,6 +140,7 @@ func (m *Manager) SendToUser(userID string, message []byte) {
 	}
 }
 
+// DisconnectUserSessions closes all sessions for a user except the specified one
 func (m *Manager) DisconnectUserSessions(userID, excludeSessionID string) {
 	m.RLock()
 	var targets []*Client
@@ -174,6 +177,7 @@ func (m *Manager) DisconnectUserSessions(userID, excludeSessionID string) {
 	}
 }
 
+// IsUserOnline checks if a user has any active connections
 func (m *Manager) IsUserOnline(userID string) bool {
 	m.RLock()
 	defer m.RUnlock()
@@ -187,6 +191,7 @@ func (m *Manager) IsUserOnline(userID string) bool {
 	return false
 }
 
+// broadcastPresence sends a presence update to all clients
 func (m *Manager) broadcastPresence(userID string, isOnline bool) {
 	message, err := json.Marshal(map[string]interface{}{
 		"type": "presence_update",

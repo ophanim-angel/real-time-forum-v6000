@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strings"
+
 	"toolKit/backend/utils"
 )
 
@@ -15,6 +16,7 @@ const (
 	sessionContextKey contextKey = "session"
 )
 
+// RequireAuth returns middleware that validates session and CSRF token, then adds auth info to request context.
 func RequireAuth(db *sql.DB) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +42,7 @@ func RequireAuth(db *sql.DB) func(http.Handler) http.Handler {
 	}
 }
 
+// requiresCSRFProtection returns true for methods that must be protected against CSRF.
 func requiresCSRFProtection(method string) bool {
 	switch method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:
@@ -49,10 +52,12 @@ func requiresCSRFProtection(method string) bool {
 	}
 }
 
+// isSecureRequest checks whether the request is secure by TLS or forwarded HTTPS header.
 func isSecureRequest(r *http.Request) bool {
 	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }
 
+// GetUserIDFromContext extracts the authenticated user ID from the request context.
 func GetUserIDFromContext(r *http.Request) string {
 	userID, ok := r.Context().Value(userContextKey).(string)
 	if !ok {
@@ -61,6 +66,7 @@ func GetUserIDFromContext(r *http.Request) string {
 	return userID
 }
 
+// GetSessionFromContext extracts the session object from the request context.
 func GetSessionFromContext(r *http.Request) *utils.Session {
 	session, ok := r.Context().Value(sessionContextKey).(*utils.Session)
 	if !ok {

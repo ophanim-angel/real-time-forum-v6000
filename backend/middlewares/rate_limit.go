@@ -20,6 +20,7 @@ type RateLimiter struct {
 	blockStatusCode int
 }
 
+// NewRateLimiter creates a new rate limiter with specified max requests and time window, and starts cleanup goroutine.
 func NewRateLimiter(maxRequests int, window time.Duration) *RateLimiter {
 	limiter := &RateLimiter{
 		visitors:        make(map[string]*visitor),
@@ -33,6 +34,7 @@ func NewRateLimiter(maxRequests int, window time.Duration) *RateLimiter {
 	return limiter
 }
 
+// Middleware wraps an HTTP handler to enforce rate limiting based on client ID.
 func (l *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		clientID := clientIdentifier(r)
@@ -56,6 +58,7 @@ func (l *RateLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
+// allow checks if a client is allowed to make a request and returns retry duration if not.
 func (l *RateLimiter) allow(clientID string) (bool, time.Duration) {
 	now := time.Now()
 	cutoff := now.Add(-l.window)
@@ -91,6 +94,7 @@ func (l *RateLimiter) allow(clientID string) (bool, time.Duration) {
 	return true, 0
 }
 
+// cleanupVisitors periodically removes visitors who have been idle for longer than maxIdle.
 func (l *RateLimiter) cleanupVisitors(maxIdle time.Duration) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -108,6 +112,7 @@ func (l *RateLimiter) cleanupVisitors(maxIdle time.Duration) {
 	}
 }
 
+// clientIdentifier extracts a unique client identifier from the request, based on user ID.
 func clientIdentifier(r *http.Request) string {
 	userID := GetUserIDFromContext(r)
 	if userID == "" {
