@@ -1,3 +1,6 @@
+import { showNotification, showView, apiRequest, navigateToPath, setCurrentUser, setCSRFToken, clearSession } from './app.js';
+import { initWebSocket } from './messages.js';
+
 // ==================== AUTH FUNCTIONS ====================
 
 // Show Register Form
@@ -7,11 +10,7 @@ function showRegister(updateHistory = true) {
     document.title = 'AGORA | Register';
 
     if (updateHistory && window.location.pathname !== '/register') {
-        if (window.navigateToPath) {
-            window.navigateToPath('/register');
-        } else {
-            window.history.pushState({}, '', '/register');
-        }
+        navigateToPath('/register');
     }
 }
 
@@ -22,11 +21,7 @@ function showLogin(updateHistory = true) {
     document.title = 'AGORA | Login';
 
     if (updateHistory && window.location.pathname !== '/login') {
-        if (window.navigateToPath) {
-            window.navigateToPath('/login');
-        } else {
-            window.history.pushState({}, '', '/login');
-        }
+        navigateToPath('/login');
     }
 }
 
@@ -73,19 +68,9 @@ async function login() {
             nickname: result.nickname
         };
 
-        if (window.setCurrentUser) {
-            window.setCurrentUser(user);
-        } else {
-            currentUser = user;
-            window.currentUser = user;
-            localStorage.setItem('user_data', JSON.stringify(user));
-        }
-
-        if (window.setCSRFToken) {
-            window.setCSRFToken(result.csrf_token);
-        }
-
-        if (window.initWebSocket) window.initWebSocket();
+        setCurrentUser(user);
+        setCSRFToken(result.csrf_token);
+        initWebSocket();
         showNotification('Login successful!', 'success');
         showView('feed');
 
@@ -153,24 +138,11 @@ async function logout() {
         // Ignore errors, still clear local data
     }
 
-    if (window.clearSession) {
-        window.clearSession({
-            updateStorage: true,
-            notify: true,
-            notificationMessage: 'Logged out successfully'
-        });
-        return;
-    }
-
-    localStorage.removeItem('user_data');
-    localStorage.removeItem('csrf_token');
-    currentUser = null;
-    window.currentUser = null;
-
-    if (window.closeWebSocket) window.closeWebSocket();
-
-    showNotification('Logged out successfully', 'success');
-    showView('auth');
+    clearSession({
+        updateStorage: true,
+        notify: true,
+        notificationMessage: 'Logged out successfully'
+    });
 }
 
 // Password Toggle Logic (Hold to reveal)
@@ -217,9 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Export for global access
-window.showRegister = showRegister;
-window.showLogin = showLogin;
-window.login = login;
-window.register = register;
-window.logout = logout;
+function initAuthUI() {
+    document.getElementById('login-submit-btn')?.addEventListener('click', login);
+    document.getElementById('show-register-btn')?.addEventListener('click', () => showRegister());
+    document.getElementById('register-submit-btn')?.addEventListener('click', register);
+    document.getElementById('show-login-btn')?.addEventListener('click', () => showLogin());
+    document.getElementById('nav-logout-btn')?.addEventListener('click', logout);
+}
+
+export { showRegister, showLogin, login, register, logout, initAuthUI };

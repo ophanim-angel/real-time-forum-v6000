@@ -1,3 +1,5 @@
+import { apiRequest, escapeHTML, getTimeAgo, showNotification, getCurrentUser } from './app.js';
+
 // ==================== FEED FUNCTIONS ====================
 
 let allPosts = [];
@@ -100,7 +102,7 @@ async function loadPosts() {
             <div class="text-center" style="padding: 3rem; color: var(--error);">
                 <span class="material-symbols-outlined" style="font-size: 3rem; opacity: 0.3;">error</span>
                 <p style="margin-top: 1rem; font-weight: 700; text-transform: uppercase; font-size: 0.75rem;">Failed to load posts</p>
-                <button class="btn btn-sm btn-outline" style="margin-top: 1rem;" onclick="loadPosts()">Retry</button>
+                <button class="btn btn-sm btn-outline" style="margin-top: 1rem;" data-action="retry-load-posts">Retry</button>
             </div>
         `;
     }
@@ -131,20 +133,20 @@ function createPostElement(post) {
             <p class="post-text">${escapeHTML(post.content || '')}</p>
         </div>
         <div class="post-footer">
-            <button class="post-action ${post.user_reaction === 'like' ? 'ruby-red' : ''}" onclick="reactToPost('${post.id}', 'like')">
+            <button class="post-action ${post.user_reaction === 'like' ? 'ruby-red' : ''}" data-action="react-post" data-post-id="${post.id}" data-reaction-type="like">
                 <span class="material-symbols-outlined">thumb_up</span>
                 <span>${post.likes || 0}</span>
             </button>
-            <button class="post-action ${post.user_reaction === 'dislike' ? 'ruby-red' : ''}" onclick="reactToPost('${post.id}', 'dislike')">
+            <button class="post-action ${post.user_reaction === 'dislike' ? 'ruby-red' : ''}" data-action="react-post" data-post-id="${post.id}" data-reaction-type="dislike">
                 <span class="material-symbols-outlined">thumb_down</span>
                 <span>${post.dislikes || 0}</span>
             </button>
-            <button class="post-action" onclick="toggleComments('${post.id}')">
+            <button class="post-action" data-action="toggle-comments" data-post-id="${post.id}">
                 <span class="material-symbols-outlined">chat_bubble</span>
                 <span>${post.comments || 0}</span>
             </button>
-            ${currentUser && currentUser.user_id === post.user_id ? `
-            <button class="post-action delete" onclick="deletePost('${post.id}')">
+            ${getCurrentUser() && getCurrentUser().user_id === post.user_id ? `
+            <button class="post-action delete" data-action="delete-post" data-post-id="${post.id}">
                 <span class="material-symbols-outlined">delete</span>
                 <span>Delete</span>
             </button>
@@ -163,7 +165,9 @@ async function createPost() {
     const title = document.getElementById('post-title').value.trim();
     const content = document.getElementById('post-content').value.trim();
     const selectedTopics = getSelectedPostTopics();
-    const category = selectedTopics.length > 0 ? selectedTopics.join(', ') : 'general';
+    const category = selectedTopics.length > 0
+        ? selectedTopics.map(formatTopicLabel).join(', ')
+        : 'General';
 
     if (!title || !content) {
         showNotification('Please fill title and content', 'error');
@@ -303,11 +307,11 @@ async function loadComments(postId) {
                             </div>
                             <div style="font-size: 0.75rem; font-weight: 500; margin-top: 0.25rem;">${escapeHTML(c.content)}</div>
                             <div class="comment-actions">
-                                <button class="comment-action ${c.user_reaction === 'like' ? 'ruby-red' : ''}" onclick="reactToComment('${c.post_id}', '${c.id}', 'like')">
+                                <button class="comment-action ${c.user_reaction === 'like' ? 'ruby-red' : ''}" data-action="react-comment" data-post-id="${c.post_id}" data-comment-id="${c.id}" data-reaction-type="like">
                                     <span class="material-symbols-outlined">thumb_up</span>
                                     <span>${c.likes || 0}</span>
                                 </button>
-                                <button class="comment-action ${c.user_reaction === 'dislike' ? 'ruby-red' : ''}" onclick="reactToComment('${c.post_id}', '${c.id}', 'dislike')">
+                                <button class="comment-action ${c.user_reaction === 'dislike' ? 'ruby-red' : ''}" data-action="react-comment" data-post-id="${c.post_id}" data-comment-id="${c.id}" data-reaction-type="dislike">
                                     <span class="material-symbols-outlined">thumb_down</span>
                                     <span>${c.dislikes || 0}</span>
                                 </button>
@@ -385,14 +389,56 @@ async function reactToComment(postId, commentId, type) {
     }
 }
 
-// Export for global access by inline onclicks
-window.loadPosts = loadPosts;
-window.createPost = createPost;
-window.deletePost = deletePost;
-window.reactToPost = reactToPost;
-window.toggleComments = toggleComments;
-window.createComment = createComment;
-window.reactToComment = reactToComment;
-window.updateFeedFilters = updateFeedFilters;
-window.clearFeedFilters = clearFeedFilters;
-window.toggleCreatePost = toggleCreatePost;
+function initFeedUI() {
+    document.getElementById('nav-create-btn')?.addEventListener('click', () => toggleCreatePost());
+    document.getElementById('clear-feed-filters-btn')?.addEventListener('click', clearFeedFilters);
+    document.getElementById('create-post-close-btn')?.addEventListener('click', () => toggleCreatePost(false));
+    document.getElementById('create-post-submit-btn')?.addEventListener('click', createPost);
+    document.querySelectorAll('input[name="feed-topic"]').forEach(input => {
+        input.addEventListener('change', updateFeedFilters);
+    });
+    document.getElementById('feed-liked-filter')?.addEventListener('change', updateFeedFilters);
+
+    document.getElementById('posts-container')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-action]');
+        if (!button) {
+            return;
+        }
+
+        const { action, postId, commentId, reactionType } = button.dataset;
+
+        if (action === 'retry-load-posts') {
+            loadPosts();
+            return;
+        }
+        if (action === 'react-post' && postId && reactionType) {
+            reactToPost(postId, reactionType);
+            return;
+        }
+        if (action === 'toggle-comments' && postId) {
+            toggleComments(postId);
+            return;
+        }
+        if (action === 'delete-post' && postId) {
+            deletePost(postId);
+            return;
+        }
+        if (action === 'react-comment' && postId && commentId && reactionType) {
+            reactToComment(postId, commentId, reactionType);
+        }
+    });
+}
+
+export {
+    loadPosts,
+    createPost,
+    deletePost,
+    reactToPost,
+    toggleComments,
+    createComment,
+    reactToComment,
+    updateFeedFilters,
+    clearFeedFilters,
+    toggleCreatePost,
+    initFeedUI
+};

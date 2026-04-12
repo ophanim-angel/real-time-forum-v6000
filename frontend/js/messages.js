@@ -1,3 +1,5 @@
+import { apiRequest, escapeHTML, showNotification, clearSession, getCurrentUser } from './app.js';
+
 // ==================== MESSAGES & CHAT LOGIC ====================
 
 let ws = null;
@@ -25,7 +27,7 @@ function initWebSocket() {
         return;
     }
 
-    if (!window.currentUser) return;
+    if (!getCurrentUser()) return;
 
     shouldReconnect = true;
     clearTimeout(reconnectTimeoutId);
@@ -72,7 +74,7 @@ function initWebSocket() {
             return;
         }
 
-        if (window.currentUser) {
+        if (getCurrentUser()) {
             reconnectTimeoutId = setTimeout(() => {
                 if (!ws) {
                     initWebSocket();
@@ -91,7 +93,7 @@ function handleWebSocketEvent(event) {
     if (event.type === 'new_message') {
         const msg = event.payload;
         clearTypingForUser(msg.sender_id);
-        const myId = window.currentUser ? window.currentUser.user_id : null;
+        const myId = getCurrentUser() ? getCurrentUser().user_id : null;
         const activeChatId = currentChatUserId;
         const isChatVisible = isMessagesPopupOpen() && activeChatId !== null;
 
@@ -147,13 +149,11 @@ function handleWebSocketEvent(event) {
         }
     } else if (event.type === 'session_revoked') {
         shouldReconnect = false;
-        if (window.clearSession) {
-            window.clearSession({
-                updateStorage: true,
-                notify: true,
-                notificationMessage: event.payload?.message || 'Your session was replaced by a new login.'
-            });
-        }
+        clearSession({
+            updateStorage: true,
+            notify: true,
+            notificationMessage: event.payload?.message || 'Your session was replaced by a new login.'
+        });
     }
 }
 
@@ -439,7 +439,7 @@ function renderCurrentChat() {
 
     body.innerHTML = '';
 
-    const myId = window.currentUser ? window.currentUser.user_id : null;
+    const myId = getCurrentUser() ? getCurrentUser().user_id : null;
     const messages = getSortedCurrentChatMessages();
 
     messages.forEach(msg => {
@@ -583,8 +583,7 @@ async function sendMessage() {
     }
 }
 
-// Allow Enter key and track typing
-document.addEventListener('DOMContentLoaded', () => {
+function setupMessageInputHandlers() {
     const input = document.getElementById('message-input');
     if (input) {
         input.addEventListener('keydown', (e) => {
@@ -631,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('pagehide', () => {
         stopTyping();
     });
-});
+}
 
 let removeTypingTimeout = null;
 function showTypingIndicator() {
@@ -706,8 +705,7 @@ function debounce(func, wait) {
 }
 
 // Export for other scripts
-window.initWebSocket = initWebSocket;
-window.closeWebSocket = () => {
+function closeWebSocket() {
     shouldReconnect = false;
     clearTimeout(reconnectTimeoutId);
     resetLocalTypingState();
@@ -717,8 +715,21 @@ window.closeWebSocket = () => {
         ws.close(1000, 'client closing');
         ws = null;
     }
+}
+
+function initMessagesUI() {
+    setupMessageInputHandlers();
+    document.getElementById('nav-msg-icon')?.addEventListener('click', () => toggleMessagesPopup());
+    document.getElementById('chat-close-btn')?.addEventListener('click', () => toggleMessagesPopup(false));
+    document.getElementById('message-send-btn')?.addEventListener('click', sendMessage);
+}
+
+export {
+    initWebSocket,
+    closeWebSocket,
+    sendMessage,
+    loadMessagesList,
+    openChat,
+    toggleMessagesPopup,
+    initMessagesUI
 };
-window.sendMessage = sendMessage;
-window.loadMessagesList = loadMessagesList;
-window.openChat = openChat;
-window.toggleMessagesPopup = toggleMessagesPopup;

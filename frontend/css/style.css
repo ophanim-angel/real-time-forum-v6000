@@ -422,6 +422,14 @@ nav {
     margin-bottom: 1rem;
 }
 
+.create-post-title {
+    font-size: 1.15rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+}
+
 .create-post-input {
     width: 100%;
     border: 2px solid var(--primary);

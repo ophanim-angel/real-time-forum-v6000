@@ -4,11 +4,23 @@
 let currentUser = null;
 const APP_PATHS = new Set(['/', '/login', '/register']);
 const AUTH_STORAGE_KEYS = new Set(['user_data', 'csrf_token']);
+let authModule = null;
+let feedModule = null;
+let messagesModule = null;
 
 // ==================== INITIALIZATION ====================
 
 // Run when page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    [authModule, feedModule, messagesModule] = await Promise.all([
+        import('./auth.js'),
+        import('./feed.js'),
+        import('./messages.js')
+    ]);
+
+    authModule.initAuthUI();
+    feedModule.initFeedUI();
+    messagesModule.initMessagesUI();
     setupGlobalEventListeners();
     checkAuth();
 });
@@ -28,8 +40,8 @@ async function checkAuth() {
 
     routeFromLocation({ replaceHistory: true });
 
-    if (session && isKnownAppPath() && window.initWebSocket) {
-        initWebSocket();
+    if (session && isKnownAppPath() && messagesModule) {
+        messagesModule.initWebSocket();
     }
 }
 
@@ -74,14 +86,14 @@ function updateHistoryForView(viewName, options = {}) {
 }
 
 function syncAuthFormWithPath() {
-    if (!window.showLogin || !window.showRegister) {
+    if (!authModule) {
         return;
     }
 
     if (getAuthModeFromPath() === 'register') {
-        window.showRegister(false);
+        authModule.showRegister(false);
     } else {
-        window.showLogin(false);
+        authModule.showLogin(false);
     }
 }
 
@@ -151,12 +163,12 @@ function showView(viewName, options = {}) {
         }
 
         // Load posts when feed view is shown
-        if (viewName === 'feed') {
-            loadPosts();
+        if (viewName === 'feed' && feedModule) {
+            feedModule.loadPosts();
         }
 
-        if (viewName === 'feed' && window.toggleMessagesPopup) {
-            window.toggleMessagesPopup(false);
+        if (viewName === 'feed' && messagesModule) {
+            messagesModule.toggleMessagesPopup(false);
         }
     }
 
@@ -166,11 +178,11 @@ function showView(viewName, options = {}) {
     const navAuth = document.getElementById('nav-auth');
     if (viewName === 'auth' || viewName === 'not-found') {
         navAuth.classList.add('hidden');
-        if (window.toggleMessagesPopup) {
-            window.toggleMessagesPopup(false);
+        if (messagesModule) {
+            messagesModule.toggleMessagesPopup(false);
         }
-        if (window.toggleCreatePost) {
-            window.toggleCreatePost(false);
+        if (feedModule) {
+            feedModule.toggleCreatePost(false);
         }
         document.getElementById('notifications').innerHTML = '';
 
@@ -197,8 +209,8 @@ function showView(viewName, options = {}) {
             }
         }
 
-        if (viewName !== 'feed' && window.toggleCreatePost) {
-            window.toggleCreatePost(false);
+        if (viewName !== 'feed' && feedModule) {
+            feedModule.toggleCreatePost(false);
         }
     }
 }
@@ -334,6 +346,13 @@ function formatNumber(num) {
 // ==================== GLOBAL EVENT LISTENERS ====================
 
 function setupGlobalEventListeners() {
+    document.getElementById('logo-home-link')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        goHome();
+    });
+
+    document.getElementById('not-found-home-btn')?.addEventListener('click', goHome);
+
     // Close notifications on click
     document.addEventListener('click', (e) => {
         if (e.target.closest('.notification')) {
@@ -362,58 +381,54 @@ function setupGlobalEventListeners() {
         }
 
         currentUser = session.user;
-        window.currentUser = session.user;
 
         if (window.location.pathname === '/login' || window.location.pathname === '/register') {
             showView('feed', { replaceHistory: true });
         }
 
-        if (window.initWebSocket) {
-            window.initWebSocket();
+        if (messagesModule) {
+            messagesModule.initWebSocket();
         }
     });
 
 }
 
-// ==================== EXPORT FOR OTHER FILES ====================
-
-// Make functions available globally for other JS files
-window.showView = showView;
-window.showNotification = showNotification;
-window.apiRequest = apiRequest;
-window.escapeHTML = escapeHTML;
-window.getTimeAgo = getTimeAgo;
-window.formatNumber = formatNumber;
-window.currentUser = currentUser;
-window.navigateToPath = navigateToPath;
-window.goHome = () => {
+export function goHome() {
     navigateToPath('/', { replaceHistory: true });
     routeFromLocation();
-};
+}
 
 // Update currentUser when auth changes
-function setCurrentUser(user) {
+export function setCurrentUser(user) {
     currentUser = user;
-    window.currentUser = user; // Ensure global sync
     if (user) {
         localStorage.setItem('user_data', JSON.stringify(user));
     } else {
         localStorage.removeItem('user_data');
     }
 }
-window.setCurrentUser = setCurrentUser;
 
-function setCSRFToken(token) {
+export function setCSRFToken(token) {
     if (token) {
         localStorage.setItem('csrf_token', token);
     } else {
         localStorage.removeItem('csrf_token');
     }
 }
-window.setCSRFToken = setCSRFToken;
 
 function getCSRFToken() {
     return localStorage.getItem('csrf_token') || '';
+}
+
+export function getCurrentUser() {
+    if (!currentUser) {
+        const session = getStoredSession();
+        if (session?.user) {
+            currentUser = session.user;
+        }
+    }
+
+    return currentUser;
 }
 
 function getStoredSession() {
@@ -475,7 +490,7 @@ function formatApiErrorMessage(statusCode, statusText, rawMessage) {
     return `${baseMessage}: ${normalizedMessage}`;
 }
 
-function clearSession(options = {}) {
+export function clearSession(options = {}) {
     const {
         updateStorage = false,
         notify = false,
@@ -494,10 +509,9 @@ function clearSession(options = {}) {
     }
 
     currentUser = null;
-    window.currentUser = null;
 
-    if (window.closeWebSocket) {
-        window.closeWebSocket();
+    if (messagesModule) {
+        messagesModule.closeWebSocket();
     }
 
     showView('auth', { replaceHistory });
@@ -507,4 +521,12 @@ function clearSession(options = {}) {
     }
 }
 
-window.clearSession = clearSession;
+export {
+    showView,
+    showNotification,
+    apiRequest,
+    escapeHTML,
+    getTimeAgo,
+    formatNumber,
+    navigateToPath
+};
