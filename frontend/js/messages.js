@@ -557,6 +557,12 @@ async function sendMessage() {
         content: content
     };
 
+    if (payload.content.length > 500) {
+        // Using your existing notification system
+        showNotification('Message is too long! Maximum 500 characters allowed.', 'error');
+        return;
+    }
+
     // Clear input immediately for better UX
     input.value = '';
     stopTyping();
