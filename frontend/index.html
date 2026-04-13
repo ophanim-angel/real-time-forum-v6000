@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AGORA | Real-Time Forum</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="./css/style.css?v=2" />
+</head>
+
+<body>
+
+    <!-- NAVIGATION -->
+    <nav>
+        <a href="/" class="logo" onclick="goHome(); return false;">
+            <div class="logo-icon">
+                <span class="material-symbols-outlined">groups</span>
+            </div>
+            <span>AGORA</span>
+        </a>
+        <div class="nav-actions hidden" id="nav-auth">
+            <button type="button" class="btn btn-sm btn-outline nav-create-btn" id="nav-create-btn"
+                onclick="toggleCreatePost()" title="Create Post">
+                <span class="material-symbols-outlined">add</span>
+                <span>Create</span>
+            </button>
+            <span class="material-symbols-outlined btn-icon" id="nav-msg-icon"
+                style="cursor: pointer; position: relative;" onclick="toggleMessagesPopup()" title="Messages">chat</span>
+            <span class="user-badge" id="nav-username">@user</span>
+            <button class="btn btn-sm btn-outline" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <!-- AUTH VIEW (Login/Register) -->
+    <div id="view-auth">
+        <div class="auth-left">
+            <div class="auth-form">
+                <!-- Login Form -->
+                <div id="form-login">
+                    <h1 class="auth-title">WELCOME BACK</h1>
+                    <p class="auth-subtitle">Access the world's most curious community</p>
+
+                    <div class="form-group">
+                        <label class="form-label">EMAIL OR NICKNAME</label>
+                        <input type="text" id="login-identifier" class="input"
+                            placeholder="Enter your email or nickname" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">PASSWORD</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="login-password" class="input"
+                                placeholder="Enter your password" />
+                            <span class="password-toggle material-symbols-outlined">visibility</span>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary btn-full" onclick="login()">LOGIN TO AGORA</button>
+
+                    <div class="auth-toggle">
+                        <p class="auth-toggle-text">Don't have an account?</p>
+                        <button type="button" class="btn btn-outline btn-full" onclick="showRegister()">CREATE ACCOUNT</button>
+                    </div>
+                </div>
+
+                <!-- Register Form -->
+                <div id="form-register" class="hidden">
+                    <h1 class="auth-title">JOIN AGORA</h1>
+                    <p class="auth-subtitle">Become part of the community</p>
+
+                    <div class="form-group">
+                        <label class="form-label">NICKNAME</label>
+                        <input type="text" id="reg-nickname" class="input" placeholder="Choose a nickname" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">EMAIL</label>
+                        <input type="email" id="reg-email" class="input" placeholder="Enter your email" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">PASSWORD</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="reg-password" class="input" placeholder="Create a password" />
+                            <span class="password-toggle material-symbols-outlined">visibility</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">FIRST NAME</label>
+                            <input type="text" id="reg-firstname" class="input" placeholder="First" />
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">LAST NAME</label>
+                            <input type="text" id="reg-lastname" class="input" placeholder="Last" />
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">AGE</label>
+                            <input type="number" id="reg-age" class="input" placeholder="25" />
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">GENDER</label>
+                            <select id="reg-gender" class="input">
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                                <option value="prefer-not-to-say">Prefer not to say</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary btn-full" onclick="register()">CREATE ACCOUNT</button>
+
+                    <div class="auth-toggle">
+                        <p class="auth-toggle-text">Already have an account?</p>
+                        <button type="button" class="btn btn-outline btn-full" onclick="showLogin()">LOGIN</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOT FOUND VIEW -->
+    <div id="view-not-found" class="hidden">
+        <div class="not-found-shell">
+            <div class="not-found-card">
+                <div class="not-found-code" id="not-found-status-code">404</div>
+                <h1 class="not-found-title" id="not-found-title">Page Not Found</h1>
+                <p class="not-found-copy" id="not-found-message">The page you requested does not exist in this app.</p>
+                <p class="not-found-path" id="not-found-path">/unknown</p>
+                <button type="button" class="btn btn-primary" onclick="goHome()">Back To Home</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FEED VIEW -->
+    <div id="view-feed" class="hidden">
+        <main class="feed-layout">
+            <aside class="feed-sidebar">
+                <div class="feed-filters-card">
+                    <div class="feed-filters-header">
+                        <div>
+                            <div class="sidebar-title" style="margin-bottom: 0.5rem;">Feed Filters</div>
+                            <p class="feed-filters-copy">Narrow by topic, or show only posts you liked.</p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="clearFeedFilters()">Clear Filters</button>
+                    </div>
+                    <div class="feed-filters-controls">
+                        <div class="filter-stack">
+                            <label class="form-label">TOPICS</label>
+                            <div class="filter-topic-list">
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="general" onchange="updateFeedFilters()" />
+                                    <span>General</span>
+                                </label>
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="science" onchange="updateFeedFilters()" />
+                                    <span>Science</span>
+                                </label>
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="tech" onchange="updateFeedFilters()" />
+                                    <span>Tech</span>
+                                </label>
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="art" onchange="updateFeedFilters()" />
+                                    <span>Art</span>
+                                </label>
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" name="feed-topic" value="gaming" onchange="updateFeedFilters()" />
+                                    <span>Gaming</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="filter-stack">
+                            <label class="form-label">REACTIONS</label>
+                            <label class="filter-checkbox">
+                                <input type="checkbox" id="feed-liked-filter" onchange="updateFeedFilters()" />
+                                <span>Only posts I liked</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="feed-main">
+            <!-- Create Post -->
+            <div class="create-post-card hidden" id="create-post-panel">
+                <div class="create-post-header">
+                    <div>
+                        <div class="sidebar-title" style="margin-bottom: 0.5rem;">Create Post</div>
+                        <p class="feed-filters-copy">Share something new with the community.</p>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="toggleCreatePost(false)">Close</button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">TITLE</label>
+                    <input type="text" id="post-title" class="input" placeholder="Enter post title..." />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">CONTENT</label>
+                    <textarea id="post-content" class="create-post-input"
+                        placeholder="What's happening in the AGORA?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">TOPICS</label>
+                    <div class="topic-grid" id="post-topic-options">
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="general" />
+                            <span>General</span>
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="science" />
+                            <span>Science</span>
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="tech" />
+                            <span>Tech</span>
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="art" />
+                            <span>Art</span>
+                        </label>
+                        <label class="filter-checkbox">
+                            <input type="checkbox" name="post-topic" value="gaming" />
+                            <span>Gaming</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="create-post-actions">
+                    <div class="create-post-hint">Pick one or more topics for your post.</div>
+                    <button type="button" class="btn btn-primary" onclick="createPost()">POST</button>
+                </div>
+            </div>
+
+            <!-- Posts Container -->
+            <div id="posts-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="chat-popups">
+        <div class="chat-popup hidden" id="chat-popup">
+            <div class="chat-popup-sidebar">
+                <div class="chat-popup-topbar">
+                    <div>
+                        <div class="sidebar-title" style="margin-bottom: 0.35rem;">Messages</div>
+                        <div class="chat-popup-subtitle">Live conversations without leaving the feed.</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="toggleMessagesPopup(false)">Close</button>
+                </div>
+                <div class="messages-list" id="messages-list">
+                    <!-- Users will be loaded here -->
+                </div>
+            </div>
+            <div class="chat-popup-panel">
+                <div class="message-header">
+                    <div class="post-avatar" id="chat-avatar">?</div>
+                    <div>
+                        <div class="post-author" id="chat-username">Select a user</div>
+                        <div class="post-time" id="chat-status">Start a conversation</div>
+                    </div>
+                </div>
+                <div class="message-body" id="message-body">
+                    <div class="text-center" style="padding: 3rem; color: var(--text-muted);">
+                        <span class="material-symbols-outlined" style="font-size: 3rem; opacity: 0.3;">chat</span>
+                        <p style="margin-top: 1rem; font-weight: 700; text-transform: uppercase; font-size: 0.75rem;">Select
+                            a user to start messaging</p>
+                    </div>
+                </div>
+                <div class="message-input-area">
+                    <input type="text" id="message-input" class="input" placeholder="Type a message..." />
+                    <button class="btn btn-primary btn-icon" onclick="sendMessage()">
+                        <span class="material-symbols-outlined">send</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-toast-stack" id="chat-toast-stack"></div>
+    </div>
+
+    <!-- NOTIFICATIONS CONTAINER -->
+    <div id="notifications"></div>
+
+    <!-- JavaScript -->
+    <script src="./js/app.js?v=2"></script>
+    <script src="./js/auth.js?v=2"></script>
+    <script src="./js/feed.js?v=2"></script>
+    <script src="./js/messages.js?v=2"></script>
+</body>
+
+</html>
