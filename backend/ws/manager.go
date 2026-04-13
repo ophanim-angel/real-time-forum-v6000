@@ -202,3 +202,20 @@ func (m *Manager) broadcastPresence(userID string, isOnline bool) {
 
 	m.Broadcast(message)
 }
+
+// SendToConversation sends message to ALL active sessions of both participants
+func (m *Manager) SendToConversation(senderID, receiverID string, message []byte) {
+    m.RLock()
+    defer m.RUnlock()
+    
+    for client := range m.clients {
+        if client.UserID == senderID || client.UserID == receiverID {
+            select {
+            case client.Send <- message:
+            default:
+                log.Printf("Channel full for client %s, closing connection", client.UserID)
+                client.Conn.Close()
+            }
+        }
+    }
+}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"time"
+
 	"toolKit/backend/utils"
 
 	"github.com/gorilla/websocket"
@@ -183,10 +184,7 @@ func (c *Client) handleSendMessage(payload json.RawMessage) {
 		},
 	}
 	outMsgBytes, _ := json.Marshal(outMsg)
-	c.Send <- outMsgBytes
-
-	// 4. Broadcast to Receiver
-	c.Manager.SendToUser(data.ReceiverID, outMsgBytes)
+	c.Manager.SendToConversation(c.UserID, data.ReceiverID, outMsgBytes)
 }
 
 func (c *Client) handleTyping(payload json.RawMessage) {
