@@ -94,26 +94,33 @@ func ValidatePostContent(content string) error {
 	return nil
 }
 
-func ValidatePostCategory(category string) (string, error) {
+func ValidatePostCategory(category string) error {
 	category = strings.TrimSpace(category)
 	if category == "" {
-		return "General", nil
+		return nil
 	}
 
-	switch strings.ToLower(category) {
-	case "general":
-		return "General", nil
-	case "science":
-		return "Science", nil
-	case "tech":
-		return "Tech", nil
-	case "art":
-		return "Art", nil
-	case "gaming":
-		return "Gaming", nil
-	default:
-		return "", fmt.Errorf("category must be one of the topics bellow")
+	allowedCategories := map[string]bool{
+		"general": true,
+		"science": true,
+		"tech":    true,
+		"art":     true,
+		"gaming":  true,
 	}
+
+	categories := strings.Split(category, ",")
+
+	errStr := "category must be one of the topics: general, science, tech, art, gaming"
+
+	for _, cat := range categories {
+		cleanCat := strings.ToLower(strings.TrimSpace(cat))
+
+		if !allowedCategories[cleanCat] {
+			return fmt.Errorf(errStr)
+		}
+	}
+
+	return nil
 }
 
 // ValidateMessageContent checks private message content

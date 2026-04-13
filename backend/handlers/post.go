@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
 	"toolKit/backend/middlewares"
 	"toolKit/backend/models"
 	"toolKit/backend/utils"
@@ -132,6 +133,10 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := utils.ValidatePostContent(input.Content); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := utils.ValidatePostCategory(input.Category); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
