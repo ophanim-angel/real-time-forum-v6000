@@ -277,6 +277,11 @@ function handleWebSocketEvent(event) {
             notify: true,
             notificationMessage: event.payload?.message || 'Your session was replaced by a new login.'
         });
+        return;
+    }
+
+    if (event.type === 'rate_limit') {
+        showNotification(event.payload?.message || 'Too many requests. Please slow down.', 'error');
     }
 }
 

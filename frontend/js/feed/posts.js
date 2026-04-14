@@ -139,6 +139,7 @@ export async function loadPosts() {
         if (requestId !== latestPostsRequestId) return;
 
         console.error('Error loading posts:', error);
+        showNotification(error.message, 'error');
         container.innerHTML = `
             <div class="text-center" style="padding: 3rem; color: var(--error);">
                 <span class="material-symbols-outlined" style="font-size: 3rem; opacity: 0.3;">error</span>

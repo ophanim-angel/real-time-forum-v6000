@@ -90,6 +90,7 @@ export async function loadComments(postId) {
             });
         });
     } catch (error) {
+        showNotification(error.message, 'error');
         section.innerHTML = `<p class="text-center" style="color: var(--error); padding: 1rem; font-size: 0.75rem;">Error loading comments: ${escapeHTML(error.message)}</p>`;
     }
 }
