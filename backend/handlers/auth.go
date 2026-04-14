@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	 "toolKit/backend/middlewares"
+	"toolKit/backend/middlewares"
 	"toolKit/backend/models"
 	"toolKit/backend/utils"
 	"toolKit/backend/ws"
@@ -92,13 +92,28 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. Success Response
+	// 6. Create a session immediately so registration logs the user in.
+	session, token, err := utils.CreateSession(r.Context(), h.DB, userID, input.Nickname)
+	if err != nil {
+		log.Println("Session creation error during registration:", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	utils.SetSessionCookie(w, token, session.ExpiresAt, isSecureRequest(r))
+
+	if h.Manager != nil {
+		h.Manager.BroadcastUserRegistered(userID, input.Nickname)
+	}
+
+	// 7. Success Response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message":  "User registered successfully",
-		"user_id":  userID,
-		"nickname": input.Nickname,
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":    "User registered successfully",
+		"user_id":    userID,
+		"nickname":   input.Nickname,
+		"csrf_token": session.CSRFToken,
 	})
 }
 

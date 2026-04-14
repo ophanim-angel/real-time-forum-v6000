@@ -203,19 +203,38 @@ func (m *Manager) broadcastPresence(userID string, isOnline bool) {
 	m.Broadcast(message)
 }
 
+func (m *Manager) BroadcastUserRegistered(userID, nickname string) {
+	message, err := json.Marshal(map[string]interface{}{
+		"type": "user_registered",
+		"payload": map[string]interface{}{
+			"id":            userID,
+			"nickname":      nickname,
+			"last_msg_time": "",
+			"last_msg":      "",
+			"is_online":     false,
+		},
+	})
+	if err != nil {
+		log.Println("Error marshaling user registered message:", err)
+		return
+	}
+
+	m.Broadcast(message)
+}
+
 // SendToConversation sends message to ALL active sessions of both participants
 func (m *Manager) SendToConversation(senderID, receiverID string, message []byte) {
-    m.RLock()
-    defer m.RUnlock()
-    
-    for client := range m.clients {
-        if client.UserID == senderID || client.UserID == receiverID {
-            select {
-            case client.Send <- message:
-            default:
-                log.Printf("Channel full for client %s, closing connection", client.UserID)
-                client.Conn.Close()
-            }
-        }
-    }
+	m.RLock()
+	defer m.RUnlock()
+
+	for client := range m.clients {
+		if client.UserID == senderID || client.UserID == receiverID {
+			select {
+			case client.Send <- message:
+			default:
+				log.Printf("Channel full for client %s, closing connection", client.UserID)
+				client.Conn.Close()
+			}
+		}
+	}
 }
