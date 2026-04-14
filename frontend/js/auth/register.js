@@ -12,7 +12,7 @@ export async function register() {
         gender: document.getElementById('reg-gender').value
     };
 
-    if (!data.nickname || !data.email || !data.password) {
+    if (!data.nickname || !data.email || !data.password || !data.first_name || !data.last_name || !data.age || !data.gender){
         showNotification('Please fill all required fields', 'error');
         return;
     }
