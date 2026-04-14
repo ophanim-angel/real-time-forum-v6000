@@ -27,16 +27,6 @@ export function getTimeAgo(dateString) {
     return `${Math.floor(seconds / 60)}m ago`;
 }
 
-export function formatNumber(num) {
-    if (num >= 1000000) {
-        return (num / 1000000).toFixed(1) + 'M';
-    }
-    if (num >= 1000) {
-        return (num / 1000).toFixed(1) + 'K';
-    }
-    return num.toString();
-}
-
 export function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
