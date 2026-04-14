@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
 	"toolKit/backend/handlers"
 	"toolKit/backend/middlewares"
 	"toolKit/backend/ws"
@@ -85,6 +87,7 @@ func main() {
 	commentHandler := &handlers.CommentHandler{DB: db}
 	chatHandler := &handlers.ChatHandler{DB: db, Manager: wsManager}
 	requireAuth := middlewares.RequireAuth(db)
+	rateLimiter := middlewares.NewRateLimiter(20, 10*time.Second)
 
 	// 4. Routes Configuration
 	mux := http.NewServeMux()
@@ -122,5 +125,5 @@ func main() {
 
 	// 5. Start Server
 	log.Println("Server starting on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Fatal(http.ListenAndServe(":8080", rateLimiter.Middleware(mux)))
 }
