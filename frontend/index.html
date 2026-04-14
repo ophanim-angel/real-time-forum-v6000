@@ -264,7 +264,6 @@
                         <div class="sidebar-title" style="margin-bottom: 0.35rem;">Messages</div>
                         <div class="chat-popup-subtitle">Live conversations without leaving the feed.</div>
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline" id="chat-close-btn">Close</button>
                 </div>
                 <div class="messages-list" id="messages-list">
                     <!-- Users will be loaded here -->
@@ -272,11 +271,14 @@
             </div>
             <div class="chat-popup-panel">
                 <div class="message-header">
-                    <div class="post-avatar" id="chat-avatar">?</div>
-                    <div>
-                        <div class="post-author" id="chat-username">Select a user</div>
-                        <div class="post-time" id="chat-status">Start a conversation</div>
+                    <div class="message-header-main">
+                        <div class="post-avatar" id="chat-avatar">?</div>
+                        <div>
+                            <div class="post-author" id="chat-username">Select a user</div>
+                            <div class="post-time" id="chat-status">Start a conversation</div>
+                        </div>
                     </div>
+                    <button type="button" class="btn btn-sm btn-outline" id="chat-panel-close-btn">Close</button>
                 </div>
                 <div class="message-body" id="message-body">
                     <div class="text-center" style="padding: 3rem; color: var(--text-muted);">

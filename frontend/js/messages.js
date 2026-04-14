@@ -755,7 +755,7 @@ export function initMessages() {
     document.getElementById('nav-msg-icon')?.addEventListener('click', () => {
         toggleMessagesPopup();
     });
-    document.getElementById('chat-close-btn')?.addEventListener('click', () => {
+    document.getElementById('chat-panel-close-btn')?.addEventListener('click', () => {
         toggleMessagesPopup(false);
     });
     document.getElementById('message-send-btn')?.addEventListener('click', sendMessage);
